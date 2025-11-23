@@ -1,5 +1,5 @@
 {
-  "name": "my-turborepo",
+  "name": "chess-webapp",
   "private": true,
   "scripts": {
     "build": "turbo run build",
