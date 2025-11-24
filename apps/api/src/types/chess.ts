@@ -1,0 +1,5 @@
+// Enum for player color
+export enum Color {
+    WHITE = 'w',
+    BLACK = 'b',
+}

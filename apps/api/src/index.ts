@@ -2,6 +2,7 @@ import express from "express";
 import { users } from "./schema/user.schema";
 import { drizzle } from "drizzle-orm/node-postgres";
 import dotenv from "dotenv";
+import bcrypt from "bcryptjs";
 
 dotenv.config({ path: ".env" });
 
@@ -35,9 +36,11 @@ app.get("/users", async (req, res) => {
 
 app.post("/users", async (req, res) => {
     console.log("POST /users body:", req.body);
-    const { name, email, bio } = req.body;
+    const { username, email, password, bio } = req.body;
     try {
-        const newUser = await db.insert(users).values({ name, email, bio }).returning();
+        // Hash the password
+        const hashed_password = bcrypt.hashSync(password, 10);
+        const newUser = await db.insert(users).values({ username, hashed_password, email, bio }).returning();
         res.status(201).json(newUser);
     } catch (err) {
         console.error("DB insert error:", err);
