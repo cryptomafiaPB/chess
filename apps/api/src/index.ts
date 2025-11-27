@@ -3,8 +3,26 @@ import { users } from "./schema/user.schema";
 import { drizzle } from "drizzle-orm/node-postgres";
 import dotenv from "dotenv";
 import bcrypt from "bcryptjs";
+import { createServer } from "http";
+import { setupSocket } from "socket";
+import { Color } from "types/chess";
+import { Player } from "chess/player";
+import { Game } from "chess/game";
 
 dotenv.config({ path: ".env" });
+
+const app = express();
+
+const server = createServer(app);
+
+
+const playerW = new Player("1", "Alice", Color.WHITE);
+const playerB = new Player("2", "Bob", Color.BLACK);
+const chessGame = new Game(playerW, playerB);
+
+
+setupSocket(server, chessGame);
+
 
 if (!process.env.TEST) {
     console.log("no TEST env var set, loading .env file");
@@ -19,7 +37,6 @@ if (!process.env.DATABASE_URL) {
 const db = drizzle(process.env.DATABASE_URL!);
 
 
-const app = express();
 
 app.use(express.urlencoded({ extended: true }));
 
@@ -48,6 +65,6 @@ app.post("/users", async (req, res) => {
     }
 });
 
-app.listen(8000, () => {
+server.listen(8000, () => {
     console.log("Server running on port 8000");
 });

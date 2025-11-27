@@ -22,12 +22,27 @@ export class Board {
 
     // Validates and makes a move, returns true if the move was successful
     makeMove(move: Move): boolean {
-        const moveResult = this.chess.move({
-            from: move.from,
-            to: move.to,
-            promotion: move.promotion,
-        });
-        return moveResult !== null;
+        // Check legal moves for this square first to avoid exceptions from chess.js
+        try {
+            const legalMoves = this.chess.moves({ square: move.from, verbose: true });
+            const targetLegal = legalMoves.some((m: any) => m.to === move.to && (!move.promotion || m.promotion === move.promotion));
+            if (!targetLegal) {
+                console.warn(`Illegal move attempted from ${move.from} to ${move.to}`);
+                return false;
+            }
+
+            const moveResult = this.chess.move({
+                from: move.from,
+                to: move.to,
+                promotion: move.promotion,
+            });
+            console.log("Move result:", moveResult, move);
+            return moveResult !== null;
+        } catch (e) {
+            // chess.js can throw for malformed or illegal moves; handle gracefully
+            console.error("Error while attempting move:", e, move);
+            return false;
+        }
     }
 
     getPieceColorAt(square: string): Color | null {

@@ -26,7 +26,9 @@ export class Game {
     // Process a move; returns true if successful
     playMove(move: Move): boolean {
         if (this.isGameOver) return false;
+        console.log("Processing move:", move);
         const pieceColor = this.board.getPieceColorAt(move.from);
+        console.log("Piece color at", move.from, "is", pieceColor);
         if (pieceColor !== this.currentTurn) return false;
 
         const moveMade = this.board.makeMove(move);
@@ -59,5 +61,9 @@ export class Game {
 
     getMoveHistory(): Move[] {
         return this.moveHistory.getMoves();
+    }
+
+    getBoardFen(): string {
+        return this.board.getFen();
     }
 }
