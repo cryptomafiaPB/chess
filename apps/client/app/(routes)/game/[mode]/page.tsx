@@ -51,6 +51,10 @@ export default function GameLayout() {
       });
     }
 
+    if (g.inCheck()) {
+      window.alert("check")
+    }
+
     if (g.isGameOver()) {
       setGameOver(true);
       if (g.isCheckmate()) {
@@ -95,27 +99,32 @@ export default function GameLayout() {
       </header>
 
       <main className="flex-1 flex justify-center">
-        <div className="w-full max-w-6xl flex flex-col lg:flex-row gap-4 p-4">
+        <div className="w-full max-w-6xl flex flex-col sm:flex-row sm:items-center sm:justify-center lg:items-start lg:justify-start gap-4 p-4">
           {/* board area */}
-          <section className="flex-1 flex justify-center items-center">
-            <div
+          <section className="flex justify-center items-center w-full sm:w-auto sm:h-full shrink-0">
+            {/* <div
               className="relative bg-slate-800 rounded-lg shadow-xl overflow-hidden"
               style={{ width: 560, height: 560 }}
-            >
-              <ChessBoard
-                board={board}
-                draggingFrom={draggingFrom}
-                onDropPiece={handleDropPiece}
-                onDragStartSquare={setDraggingFrom}
-                onDragEndSquare={() => setDraggingFrom(null)}
-                result={result}
-                gameOver={gameOver}
-              />
-            </div>
+            > */}
+            <ChessBoard
+              board={board}
+              draggingFrom={draggingFrom}
+              onDropPiece={handleDropPiece}
+              onDragStartSquare={setDraggingFrom}
+              onDragEndSquare={() => setDraggingFrom(null)}
+              result={result}
+              gameOver={gameOver}
+            />
+            {/* </div> */}
           </section>
 
-          <aside className="w-full lg:w-80 flex flex-col gap-3">
-            <div className="bg-slate-800 rounded-lg p-3 flex-1 overflow-y-auto">
+          <aside className="flex-1  rounded-lg border border-neutral-700 w-full lg:max-w-[440px] max-h-full lg:w-80 flex flex-col gap-3 sm:hidden lg:flex">
+            <div className="flex border-b border-neutral-700">
+              <button className="flex-1 py-3 text-sm font-medium hover:bg-neutral-700 border-b-2 border-emerald-500">History</button>
+              <button className="flex-1 py-3 text-sm font-medium hover:bg-neutral-700 text-neutral-400">Chat</button>
+              <button className="flex-1 py-3 text-sm font-medium hover:bg-neutral-700 text-neutral-400">Analysis</button>
+            </div>
+            <div className="flex-1  space-y-2 mb-2 p-3">
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-sm font-semibold">Moves</h2>
                 <button
@@ -126,9 +135,9 @@ export default function GameLayout() {
                   Undo
                 </button>
               </div>
-
-              <MoveList history={history} />
             </div>
+
+            <MoveList history={history} />
           </aside>
         </div>
       </main>
@@ -145,10 +154,10 @@ function MoveList({ history }: { history: UiMove[] }) {
   }
 
   return (
-    <div className="space-y-1 text-xs">
+    <div className="flex-1 overflow-y-scroll p-4 space-y-2">
       {rows.map(row => (
-        <div key={row.num} className="flex gap-2">
-          <span className="w-6 text-slate-400">{row.num}.</span>
+        <div key={row.num} className="flex justify-between text-sm py-1 border-b border-neutral-700/50">
+          <span className="text-neutral-500 w-8">{row.num}.</span>
           <span className="flex-1">{row.white?.san ?? ""}</span>
           <span className="flex-1">{row.black?.san ?? ""}</span>
         </div>

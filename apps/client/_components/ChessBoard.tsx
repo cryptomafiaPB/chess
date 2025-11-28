@@ -25,7 +25,12 @@ export default function ChessBoard({
     gameOver,
 }: ChessBoardProps) {
     return (
-        <div className="w-full h-full grid grid-cols-8 grid-rows-8">
+        <div className="relative 
+            w-full aspect-square 
+            sm:w-auto sm:h-full 
+            max-h-fit sm:max-h-full 
+            bg-neutral-800 rounded-lg border-4 border-neutral-700 shadow-2xl
+            grid grid-cols-8 grid-rows-8 overflow-hidden">
             {board.map((rowArr, row) =>
                 rowArr.map((piece, col) => {
                     const pos = { row, col };
