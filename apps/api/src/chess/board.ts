@@ -36,7 +36,7 @@ export class Board {
                 to: move.to,
                 promotion: move.promotion,
             });
-            console.log("Move result:", moveResult, move);
+            console.log("Move result:", move);
             return moveResult !== null;
         } catch (e) {
             // chess.js can throw for malformed or illegal moves; handle gracefully
@@ -63,18 +63,18 @@ export class Board {
 
     // Check game status: checkmate, draw, stalemate
     isGameOver(): boolean {
-        return this.chess.game_over();
+        return this.chess.isGameOver();
     }
 
     isCheckmate(): boolean {
-        return this.chess.in_checkmate();
+        return this.chess.isCheck();
     }
 
     isDraw(): boolean {
-        return this.chess.in_draw();
+        return this.chess.isDraw();
     }
 
     isStalemate(): boolean {
-        return this.chess.in_stalemate();
+        return this.chess.isStalemate();
     }
 }
