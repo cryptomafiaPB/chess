@@ -27,6 +27,11 @@ export const gameToBoard = (game: Chess): Board => {
 export const getSquareColor = (row: number, col: number): string =>
     (row + col) % 2 === 0 ? 'bg-[#F0D9B5]' : 'bg-[#B58863]';
 
+export const getSquareColorWithSan = (san: string): string => {
+    const file = san.charCodeAt(0) - 'a'.charCodeAt(0);
+    const rank = 8 - parseInt(san[1], 10);
+    return getSquareColor(rank, file);
+}
 
 export function safeMove(game: Chess, move: Move | string): Move | null {
     try {

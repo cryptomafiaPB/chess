@@ -5,8 +5,8 @@ export default function Landing() {
   const router = useRouter();
 
   const gameTypes = [
-    { id: "classic", label: "Classic (Unlimited Time)", href: "/game/classic" },
-    { id: "timed", label: "Timed (10 min)", href: "/game/timed" }
+    { id: "classic", label: "Classic (Unlimited Time)", href: "/game/classic/game1" },
+    { id: "timed", label: "Timed (10 min)", href: "/game/timed/game1" }
   ];
 
   return (
