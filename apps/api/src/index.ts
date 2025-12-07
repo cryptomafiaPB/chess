@@ -4,7 +4,7 @@ import { Server } from 'socket.io';
 import { config } from './config/env';
 import cors from 'cors';
 import { initializeSocket } from './socket/index';
-import { redisClient } from 'db/redis';
+import { redis } from 'db/redis';
 import { db } from 'config/database';
 
 const app = express();
@@ -28,7 +28,7 @@ app.get('/health', (req, res) => {
 // Initialize Socket.io
 initializeSocket(io);
 
-redisClient; // Ensure Redis client is initialized
+redis; // Ensure Redis client is initialized
 db; // Ensure Database is initialized
 
 // Start server
