@@ -26,10 +26,12 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/jsonwebtoken": "^9.0.10",
     "bcryptjs": "^3.0.3",
     "chess.js": "^1.4.0",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.44.7",
