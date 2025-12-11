@@ -11,6 +11,8 @@ import cookieParser from 'cookie-parser';
 
 // Import routes
 import authRoutes from './routes/auth.route';
+import profileRoutes from './routes/profile.route';
+import friendRoutes from './routes/friend.route';
 
 const app = express();
 const httpServer = createServer(app);
@@ -36,6 +38,9 @@ app.get('/health', (req, res) => {
 
 // Routes
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/profile', profileRoutes);
+app.use('/api/v1/friends', friendRoutes);
+
 
 // Error handler (must be last)
 app.use(errorHandler);
