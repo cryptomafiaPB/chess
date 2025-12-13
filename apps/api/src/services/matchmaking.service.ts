@@ -4,6 +4,7 @@ import { randomUUID } from 'crypto';
 import { redis } from 'db/redis';
 import { games } from 'schema/game.schema';
 import { ratings } from 'schema/ratings.schema';
+import { gameService } from './game.service';
 
 type TimeControl = 'bullet' | 'blitz' | 'rapid' | 'classical';
 
@@ -67,6 +68,8 @@ export class MatchmakingService {
             mode: 'pvp',
             status: 'active'
         }).returning();
+
+        await gameService.createInitialState(game!.id);
 
         return {
             gameId: game!.id,

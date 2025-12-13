@@ -1,10 +1,10 @@
+// game.ts
 import { Color } from "types/chess";
-import { Board } from "./board";
+import { Board, type LegalMoveHint } from "./board";
 import { MoveHistory } from "./moveHistory";
 import type { Player } from "./player";
 import type { Move } from "./move";
 
-// Main game class managing players, board, moves and game state
 export class Game {
     private board: Board;
     private moveHistory: MoveHistory;
@@ -13,19 +13,27 @@ export class Game {
     private isGameOver: boolean = false;
     private winner: Color | null = null;
 
-    constructor(playerWhite: Player, playerBlack: Player) {
+    constructor(playerWhite: Player, playerBlack: Player, fen?: string) {
         this.players = new Map<Color, Player>([
             [Color.WHITE, playerWhite],
             [Color.BLACK, playerBlack],
         ]);
-        this.board = new Board();
+        this.board = new Board(fen);
         this.moveHistory = new MoveHistory();
         this.currentTurn = Color.WHITE;
     }
 
-    // Process a move; returns true if successful
+    static fromFen(
+        playerWhite: Player,
+        playerBlack: Player,
+        fen: string
+    ): Game {
+        return new Game(playerWhite, playerBlack, fen);
+    }
+
     playMove(move: Move): boolean {
         if (this.isGameOver) return false;
+
         const pieceColor = this.board.getPieceColorAt(move.from);
         if (pieceColor !== this.currentTurn) return false;
 
@@ -33,20 +41,24 @@ export class Game {
         if (!moveMade) return false;
 
         this.moveHistory.addMove(move);
-        this.toggleTurn();
 
         if (this.board.isCheckmate()) {
             this.isGameOver = true;
-            this.winner = this.currentTurn === Color.WHITE ? Color.BLACK : Color.WHITE;
+            this.winner =
+                this.currentTurn === Color.WHITE ? Color.BLACK : Color.WHITE;
         } else if (this.board.isDraw() || this.board.isStalemate()) {
             this.isGameOver = true;
             this.winner = null;
+        } else {
+            this.toggleTurn();
         }
+
         return true;
     }
 
     toggleTurn() {
-        this.currentTurn = this.currentTurn === Color.WHITE ? Color.BLACK : Color.WHITE;
+        this.currentTurn =
+            this.currentTurn === Color.WHITE ? Color.BLACK : Color.WHITE;
     }
 
     getCurrentTurn(): Color {
@@ -63,5 +75,13 @@ export class Game {
 
     getBoardFen(): string {
         return this.board.getFen();
+    }
+
+    isOver(): boolean {
+        return this.isGameOver;
+    }
+
+    getLegalMoves(from?: string): LegalMoveHint[] {
+        return this.board.getLegalMovesFrom(from);
     }
 }
