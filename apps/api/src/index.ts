@@ -23,6 +23,7 @@ const io = new Server(httpServer, {
     }
 });
 
+
 // Middleware
 app.use(cors({
     origin: config.corsOrigin,
@@ -42,13 +43,14 @@ app.use('/api/v1/profile', profileRoutes);
 app.use('/api/v1/friends', friendRoutes);
 
 
-// Error handler (must be last)
-app.use(errorHandler);
 
 // Initialize Socket.io
 initializeSocket(io);
 redis; // Ensure Redis client is initialized
 db; // Ensure Database is initialized
+
+// Error handler (must be last)
+app.use(errorHandler);
 
 // Start server
 httpServer.listen(config.port, () => {

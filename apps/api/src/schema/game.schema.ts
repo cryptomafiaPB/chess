@@ -2,9 +2,9 @@ import { pgTable, serial, varchar, text, timestamp, integer, uuid } from "drizzl
 import { users } from "./user.schema";
 
 export const games = pgTable("games", {
-    id: uuid('id').defaultRandom().primaryKey(),
-    whitePlayerId: uuid("white_player_id").notNull().references(() => users.id),
-    blackPlayerId: uuid("black_player_id").notNull().references(() => users.id),
+    id: serial('id').primaryKey(),
+    whitePlayerId: integer("white_player_id").notNull().references(() => users.id),
+    blackPlayerId: integer("black_player_id").notNull().references(() => users.id),
     mode: varchar('mode', { length: 20 }).default('pvp').notNull(), // pvp, bot
     timeControl: varchar('time_control', { length: 20 }).notNull(), // bullet, blitz, rapid, classical
     initialFen: text('initial_fen').default('startpos'),

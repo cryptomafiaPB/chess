@@ -16,7 +16,7 @@ export const authMiddleware = async (
     next: NextFunction
 ) => {
     try {
-        // Get token from Authorization header [web:37]
+        // Get token from Authorization header or cookies
         const authHeader = req.headers.authorization;
 
         if (!authHeader || !authHeader.startsWith('Bearer ')) {

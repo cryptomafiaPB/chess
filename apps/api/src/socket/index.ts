@@ -1,4 +1,5 @@
 import { Server } from 'socket.io';
+import { verifyAccessToken } from '../utils/jwt';
 import { gameHandler } from './handlers/game.handler';
 // import { chatHandler } from './handlers/chat.handler';
 // import { voiceHandler } from './handlers/voice.handler';
@@ -9,9 +10,42 @@ import { voiceHandler } from './handlers/voice.handler';
 
 export const initializeSocket = (io: Server) => {
     io.on('connection', (socket) => {
-        // Here you should parse JWT from handshake.auth or headers and set socket.data.userId. [web:56][web:40]
+        // Parse JWT from handshake.auth or headers and set socket.data.userId.
+        // Client sends: auth: () => ({ token: `Bearer ${token}` })
+        try {
+            let token: string | undefined;
+            const auth = socket.handshake.auth as Record<string, any> | undefined;
+            if (auth && typeof auth.token === 'string') token = auth.token;
 
-        console.log(`✅ Client connected: ${socket.id}`);
+
+            if (!token) {
+                const h = socket.handshake.headers as Record<string, any> | undefined;
+                if (h) token = (h.authorization || h.Authorization) as string | undefined;
+            }
+
+            if (token && token.startsWith('Bearer ')) token = token.slice(7);
+
+            if (!token) {
+                console.log(`❌ No auth token provided for socket ${socket.id}`);
+                socket.emit('error', 'No auth token');
+                socket.disconnect(true);
+                return;
+            }
+
+            const payload = verifyAccessToken(token);
+            socket.data.userId = payload.userId;
+        } catch (err) {
+            console.log(`❌ Socket auth failed for ${socket.id}:`, err instanceof Error ? err.message : err);
+            socket.emit('error', 'Unauthorized');
+            socket.disconnect(true);
+            return;
+        }
+
+        if (socket.data.userId) {
+            socket.join(`user:${socket.data.userId}`);
+        }
+
+        console.log(`✅ Client connected: ${socket.id} (user:${socket.data.userId})`);
 
         gameHandler(io, socket);
         // chatHandler(io, socket);
@@ -28,8 +62,8 @@ export const initializeSocket = (io: Server) => {
                     const gameRow = await gameService.getGameRow(gameId);
 
                     let role: 'white' | 'black' | null = null;
-                    if (userId === gameRow.whitePlayerId) role = 'white';
-                    else if (userId === gameRow.blackPlayerId) role = 'black';
+                    if (userId === gameRow.whitePlayerId.toString()) role = 'white';
+                    else if (userId === gameRow.blackPlayerId.toString()) role = 'black';
 
                     if (!role) continue;
 

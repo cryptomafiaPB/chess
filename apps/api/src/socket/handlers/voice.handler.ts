@@ -1,3 +1,4 @@
+// src/socket/handlers/voice.handler.ts
 import { Server, Socket } from 'socket.io';
 import { gameService } from '../../services/game.service';
 
@@ -27,13 +28,14 @@ export function voiceHandler(io: Server, socket: Socket) {
             if (!userId) return;
 
             const game = await gameService.getGameRow(gameId);
-            const isPlayer =
-                userId === game.whitePlayerId || userId === game.blackPlayerId;
+            const whiteId = game.whitePlayerId.toString();
+            const blackId = game.blackPlayerId.toString();
+            const isPlayer = userId === whiteId || userId === blackId;
 
             if (!isPlayer) {
                 return socket.emit('voice:error', {
                     gameId,
-                    message: 'Only players can use voice chat'
+                    message: 'Only players can use voice chat',
                 });
             }
 
@@ -41,12 +43,18 @@ export function voiceHandler(io: Server, socket: Socket) {
             socket.join(room);
             (socket.data.games as Set<string>).add(gameId);
 
-            // Notify other player that this user is ready for voice
-            socket.to(room).emit('voice:ready', { gameId, userId });
+            const opponentId = userId === whiteId ? blackId : whiteId;
+
+            // ✅ Notify only the opponent that this user is ready for voice
+            io.to(`user:${opponentId}`).emit('voice:ready', {
+                gameId,
+                userId,       // caller
+                targetUserId: opponentId,
+            });
         } catch (err) {
             socket.emit('voice:error', {
                 gameId,
-                message: 'Failed to init voice'
+                message: 'Failed to init voice',
             });
         }
     });
@@ -57,11 +65,12 @@ export function voiceHandler(io: Server, socket: Socket) {
 
         const { gameId, targetUserId, sdp } = payload;
 
-        io.to(`game:${gameId}`).emit('voice:offer', {
+        // ✅ send only to target user, not entire game room
+        io.to(`user:${targetUserId}`).emit('voice:offer', {
             gameId,
             fromUserId: userId,
             toUserId: targetUserId,
-            sdp
+            sdp,
         });
     });
 
@@ -71,11 +80,12 @@ export function voiceHandler(io: Server, socket: Socket) {
 
         const { gameId, targetUserId, sdp } = payload;
 
-        io.to(`game:${gameId}`).emit('voice:answer', {
+        // ✅ send only to target user
+        io.to(`user:${targetUserId}`).emit('voice:answer', {
             gameId,
             fromUserId: userId,
             toUserId: targetUserId,
-            sdp
+            sdp,
         });
     });
 
@@ -85,11 +95,12 @@ export function voiceHandler(io: Server, socket: Socket) {
 
         const { gameId, targetUserId, candidate } = payload;
 
-        io.to(`game:${gameId}`).emit('voice:ice-candidate', {
+        // ✅ send only to target user
+        io.to(`user:${targetUserId}`).emit('voice:ice-candidate', {
             gameId,
             fromUserId: userId,
             toUserId: targetUserId,
-            candidate
+            candidate,
         });
     });
 
@@ -102,7 +113,7 @@ export function voiceHandler(io: Server, socket: Socket) {
         socket.to(`game:${gameId}`).emit('voice:mute-status', {
             gameId,
             userId,
-            isMuted
+            isMuted,
         });
     });
 

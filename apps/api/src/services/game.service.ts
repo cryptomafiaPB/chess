@@ -27,22 +27,22 @@ export class GameService {
 
     async getGameRow(gameId: string) {
         const game = await db.query.games.findFirst({
-            where: eq(games.id, gameId)
+            where: eq(games.id, Number(gameId))
         });
         if (!game) throw new Error('Game not found');
         return game;
     }
 
-    async createInitialState(gameId: string) {
-        const gameRow = await this.getGameRow(gameId);
+    async createInitialState(gameId: number) {
+        const gameRow = await this.getGameRow(gameId.toString());
 
         const whitePlayer = new Player(
-            gameRow.whitePlayerId,
+            gameRow.whitePlayerId.toString(),
             'white',
             Color.WHITE
         );
         const blackPlayer = new Player(
-            gameRow.blackPlayerId,
+            gameRow.blackPlayerId.toString(),
             'black',
             Color.BLACK
         );
@@ -53,7 +53,7 @@ export class GameService {
         const tc = gameRow.timeControl as TimeControl;
         const config = TIME_CONTROLS[tc] ?? TIME_CONTROLS.blitz;
 
-        const key = this.gameKey(gameId);
+        const key = this.gameKey(gameId.toString());
         await redis.hset(key, {
             fen,
             status: 'active',
@@ -76,12 +76,12 @@ export class GameService {
         const fen = (await redis.hget(key, 'fen')) || undefined;
 
         const whitePlayer = new Player(
-            gameRow.whitePlayerId,
+            gameRow.whitePlayerId.toString(),
             'white',
             Color.WHITE
         );
         const blackPlayer = new Player(
-            gameRow.blackPlayerId,
+            gameRow.blackPlayerId.toString(),
             'black',
             Color.BLACK
         );
@@ -100,13 +100,15 @@ export class GameService {
     async makeMove(input: MakeMoveInput) {
         const { gameRow, game } = await this.loadGameObject(input.gameId);
 
-        const isWhite = input.userId === gameRow.whitePlayerId;
-        const isBlack = input.userId === gameRow.blackPlayerId;
+        const isWhite = Number(input.userId) === Number(gameRow.whitePlayerId);
+        const isBlack = Number(input.userId) === Number(gameRow.blackPlayerId);
+
+        console.log('Making move:', input, 'isWhite:', isWhite, 'isBlack:', isBlack, "\ngameRow:", gameRow, '\ncurrentFen:', await this.getFen(input.gameId));
         if (!isWhite && !isBlack) throw new Error('Not a player in this game');
 
         const expectedColor = isWhite ? Color.WHITE : Color.BLACK;
         if (game.getCurrentTurn() !== expectedColor) {
-            throw new Error('Not your turn');
+            throw new Error('Not your turn, its ' + game.getCurrentTurn() + "'s turn");
         }
 
         // --- CLOCK UPDATE ---
@@ -136,7 +138,7 @@ export class GameService {
                     resultReason,
                     endedAt: new Date()
                 })
-                .where(eq(games.id, input.gameId));
+                .where(eq(games.id, Number(input.gameId)));
 
             await redis.hset(this.gameKey(input.gameId), {
                 status: 'completed',
@@ -194,7 +196,7 @@ export class GameService {
                     resultReason,
                     endedAt: new Date()
                 })
-                .where(eq(games.id, input.gameId));
+                .where(eq(games.id, Number(input.gameId)));
 
             if (result) {
                 await ratingService.updateRatingsForGame(input.gameId);
@@ -224,8 +226,8 @@ export class GameService {
     ) {
         const { gameRow, game } = await this.loadGameObject(gameId);
 
-        const isWhite = userId === gameRow.whitePlayerId;
-        const isBlack = userId === gameRow.blackPlayerId;
+        const isWhite = Number(userId) === Number(gameRow.whitePlayerId);
+        const isBlack = Number(userId) === Number(gameRow.blackPlayerId);
 
         if (!isWhite && !isBlack) {
             throw new Error('Not a player in this game');
@@ -245,8 +247,8 @@ export class GameService {
         const gameRow = await this.getGameRow(gameId);
 
         let result: GameResult;
-        if (userId === gameRow.whitePlayerId) result = 'black_wins';
-        else if (userId === gameRow.blackPlayerId) result = 'white_wins';
+        if (userId === gameRow.whitePlayerId.toString()) result = 'black_wins';
+        else if (userId === gameRow.blackPlayerId.toString()) result = 'white_wins';
         else throw new Error('Not a player in this game');
 
         await db
@@ -257,7 +259,7 @@ export class GameService {
                 resultReason: 'resign',
                 endedAt: new Date()
             })
-            .where(eq(games.id, gameId));
+            .where(eq(games.id, Number(gameId)));
 
         await redis.hset(this.gameKey(gameId), {
             status: 'completed',

@@ -31,7 +31,7 @@ export class PresenceService {
         const key = this.key(gameId);
 
         const game = await db.query.games.findFirst({
-            where: eq(games.id, gameId)
+            where: eq(games.id, Number(gameId))
         });
         if (!game) return;
 
@@ -81,7 +81,7 @@ export class PresenceService {
         if (!flagRole) return;
 
         const gameRow = await db.query.games.findFirst({
-            where: eq(games.id, gameId)
+            where: eq(games.id, Number(gameId))
         });
         if (!gameRow || gameRow.status !== 'active') return;
 
@@ -90,7 +90,7 @@ export class PresenceService {
                 ? gameRow.whitePlayerId
                 : gameRow.blackPlayerId;
 
-        const result = await gameService.resign(gameId, userId);
+        const result = await gameService.resign(gameId, userId.toString());
 
         io.to(`game:${gameId}`).emit('game:ended', {
             gameId,

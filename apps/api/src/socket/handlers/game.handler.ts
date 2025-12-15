@@ -35,8 +35,8 @@ export function gameHandler(io: Server, socket: Socket) {
             const { whitePlayerId, blackPlayerId } = fullState;
 
             let role: 'white' | 'black' | 'spectator' = 'spectator';
-            if (userId === whitePlayerId) role = 'white';
-            else if (userId === blackPlayerId) role = 'black';
+            if (userId === whitePlayerId.toString()) role = 'white';
+            else if (userId === blackPlayerId.toString()) role = 'black';
 
             const room = `game:${payload.gameId}`;
             socket.join(room);
@@ -85,6 +85,7 @@ export function gameHandler(io: Server, socket: Socket) {
                 resultReason: res.resultReason
             });
         } catch (e) {
+            console.log('Error making move:', e);
             socket.emit('game:invalid-move', {
                 gameId: payload.gameId,
                 message: e instanceof Error ? e.message : 'Move failed'

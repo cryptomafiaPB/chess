@@ -20,16 +20,22 @@ export function matchmakingHandler(io: Server, socket: Socket) {
         try {
             if (!userId) return;
 
+            console.log(`Matchmaking: User ${userId} is attempting to join queue for ${payload.timeControl}`);
+
             const rating = await matchmakingService.getPlayerRating(
                 userId,
                 payload.timeControl
             );
+
+            console.log(`User ${userId} joined queue for ${payload.timeControl} with rating ${rating}`);
 
             await matchmakingService.enqueue({
                 userId,
                 rating,
                 timeControl: payload.timeControl
             });
+
+            console.log(`User ${userId} enqueued for ${payload.timeControl}`);
 
             socket.join(`queue:${payload.timeControl}`);
             socket.emit('queue:joined', { timeControl: payload.timeControl });
@@ -39,13 +45,28 @@ export function matchmakingHandler(io: Server, socket: Socket) {
             if (match) {
                 const { gameId, whitePlayerId, blackPlayerId } = match;
 
-                await gameService.createInitialState(gameId);
+                await gameService.createInitialState(Number(gameId));
 
                 // Put players into a game room
                 const room = `game:${gameId}`;
-                io.to(socket.id).socketsJoin(room); // ensure this socket is joined if it is involved
+                // Ensure both players' sockets are joined into the game room.
+                // Find all connected sockets for both users and add them to the room.
+                const sockets = io.sockets.sockets;
+                for (const [id, s] of sockets) {
+                    const sidUser = s.data.userId as string | undefined;
+                    if (sidUser === whitePlayerId || sidUser === blackPlayerId) {
+                        try {
+                            s.join(room);
+                            if (!s.data.games) s.data.games = new Set<string>();
+                            (s.data.games as Set<string>).add(gameId);
+                        } catch (e) {
+                            // ignore per-socket join failures
+                            console.log(`Failed to add socket ${id} to game room ${room}:`, e);
+                        }
+                    }
+                }
 
-                // Emit to both players by their userId -> you should maintain userId ↔ socketId mapping
+                // Emit to the room so all joined sockets receive the event
                 io.to(room).emit('game:started', {
                     gameId,
                     whitePlayerId,

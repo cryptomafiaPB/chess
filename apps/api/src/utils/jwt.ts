@@ -15,7 +15,7 @@ export interface TokenPair {
 // Generate access token (short-lived: 15min)
 export const generateAccessToken = (payload: TokenPayload): string => {
     const options: SignOptions = {
-        expiresIn: '15m',
+        expiresIn: '1h',
         issuer: 'chess-platform'
     };
     return jwt.sign(payload, config.jwtSecret as Secret, options);

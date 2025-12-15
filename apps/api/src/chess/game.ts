@@ -20,7 +20,8 @@ export class Game {
         ]);
         this.board = new Board(fen);
         this.moveHistory = new MoveHistory();
-        this.currentTurn = Color.WHITE;
+        // Initialize current turn from board (respect FEN if provided)
+        this.currentTurn = this.board.getTurnColor();
     }
 
     static fromFen(
@@ -45,7 +46,7 @@ export class Game {
         if (this.board.isCheckmate()) {
             this.isGameOver = true;
             this.winner =
-                this.currentTurn === Color.WHITE ? Color.BLACK : Color.WHITE;
+                this.currentTurn === Color.WHITE ? Color.WHITE : Color.BLACK;
         } else if (this.board.isDraw() || this.board.isStalemate()) {
             this.isGameOver = true;
             this.winner = null;

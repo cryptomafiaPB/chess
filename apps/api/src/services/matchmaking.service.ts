@@ -44,38 +44,42 @@ export class MatchmakingService {
         whitePlayerId: string;
         blackPlayerId: string;
     } | null> {
-        const key = QUEUE_KEY(timeControl);
-        const members = (await redis.zrange(key, 0, -1)) ?? []
+        try {
+            const key = QUEUE_KEY(timeControl);
+            const members = (await redis.zrange(key, 0, -1)) ?? []
 
-        if (members.length < 2) return null;
+            if (members.length < 2) return null;
 
-        // Take first two for V1 (simple FIFO). Rating-based pairing can be added later.
-        const p1 = JSON.parse(members[0]!) as QueuePlayer;
-        const p2 = JSON.parse(members[1]!) as QueuePlayer;
+            // Take first two for V1 (simple FIFO). Rating-based pairing can be added later.
+            const p1 = JSON.parse(members[0]!) as QueuePlayer;
+            const p2 = JSON.parse(members[1]!) as QueuePlayer;
 
-        // Remove from queue
-        await redis.zrem(key, members[0]!, members[1]!);
+            // Remove from queue
+            await redis.zrem(key, members[0]!, members[1]!);
 
-        // Decide colors randomly
-        const white = Math.random() < 0.5 ? p1.userId : p2.userId;
-        const black = white === p1.userId ? p2.userId : p1.userId;
+            // Decide colors randomly
+            const white = Math.random() < 0.5 ? p1.userId : p2.userId;
+            const black = white === p1.userId ? p2.userId : p1.userId;
 
-        const [game] = await db.insert(games).values({
-            id: randomUUID(),
-            whitePlayerId: white,
-            blackPlayerId: black,
-            timeControl,
-            mode: 'pvp',
-            status: 'active'
-        }).returning();
+            const [game] = await db.insert(games).values({
+                whitePlayerId: parseInt(white),
+                blackPlayerId: parseInt(black),
+                timeControl,
+                mode: 'pvp',
+                status: 'active'
+            }).returning();
 
-        await gameService.createInitialState(game!.id);
+            await gameService.createInitialState(game!.id);
 
-        return {
-            gameId: game!.id,
-            whitePlayerId: white,
-            blackPlayerId: black
-        };
+            return {
+                gameId: String(game!.id),
+                whitePlayerId: white,
+                blackPlayerId: black
+            };
+        } catch (err) {
+            console.error('Error finding match:', err);
+            return null;
+        }
     }
 
     // Helper to load rating for queueing
