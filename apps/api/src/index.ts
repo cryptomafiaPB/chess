@@ -28,6 +28,7 @@ const io = new Server(httpServer,
     }
 );
 
+console.log('CORS Origins:', config.corsOrigin);
 
 // Middleware
 app.use(cors({
@@ -65,6 +66,6 @@ db; // Ensure Database is initialized
 app.use(errorHandler);
 
 // Start server
-httpServer.listen(Number(config.port), '0.0.0.0', () => {
+httpServer.listen(Number(config.port), () => {
     console.log(`🚀 Server running on port ${config.port}`);
 });

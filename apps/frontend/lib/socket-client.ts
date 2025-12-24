@@ -20,6 +20,10 @@ export function getSocketClient(): Socket {
             withCredentials: true,
             transports: ['websocket'],
             auth: initialAuthToken ? { token: `Bearer ${initialAuthToken}` } : undefined,
+            reconnection: true,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 5000,
+            reconnectionAttempts: Infinity
         });
 
         // Ensure auth is refreshed before reconnect attempts
@@ -27,13 +31,23 @@ export function getSocketClient(): Socket {
             const t = getAccessToken() ?? (typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null);
             socket!.auth = t ? { token: `Bearer ${t}` } : {};
         });
-    }
-    else {
-        // update auth on reconnect if token changes
-        socket.auth = () => {
-            const token = getAccessToken();
-            return token ? { token: `Bearer ${token}` } : {};
-        };
+
+        // Log reconnection events
+        socket.on('disconnect', (reason) => {
+            console.warn('⚠️ WebSocket disconnected:', reason);
+        });
+
+        socket.on('connect', () => {
+            console.log('✅ WebSocket connected:', socket!.id);
+        });
+
+        socket.on('reconnect', () => {
+            console.log('✅ WebSocket reconnected:', socket!.id);
+        });
+
+        socket.on('connect_error', (error) => {
+            console.error('❌ WebSocket connection error:', error);
+        });
     }
     return socket;
 }

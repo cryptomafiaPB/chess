@@ -9,9 +9,10 @@ import { gameService } from 'services/game.service';
 import { voiceHandler } from './handlers/voice.handler';
 import { socketAuthHandler } from './handlers/socket-auth.handler';
 import { chatHandler } from './handlers/chat.handler';
+import { reconnectionHandler } from './handlers/reconnection.handler';
 
 export const initializeSocket = (io: Server) => {
-    io.on('connection', (socket) => {
+    io.on('connection', async (socket) => {
         // Parse JWT from handshake.auth or headers and set socket.data.userId.
         // Client sends: auth: () => ({ token: `Bearer ${token}` })
 
@@ -32,6 +33,9 @@ export const initializeSocket = (io: Server) => {
         chatHandler(io, socket);
         voiceHandler(io, socket);
         matchmakingHandler(io, socket);
+
+        // Handle reconnection - restore game sessions
+        await reconnectionHandler(io, socket);
 
         socket.on('disconnect', async () => {
             const userId = socket.data.userId as string | undefined;
