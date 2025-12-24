@@ -30,7 +30,9 @@ export default function RegisterPage() {
         setError(null);
         mutate(values, {
             onError: (err: any) => {
+                console.error('Registration error:', err);
                 setError(err?.message ?? 'Registration failed');
+                // setError(err)
             },
         });
     };

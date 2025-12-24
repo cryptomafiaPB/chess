@@ -7,39 +7,20 @@ import { matchmakingHandler } from './handlers/matchmaking.handler';
 import { presenceService } from 'services/presence.service';
 import { gameService } from 'services/game.service';
 import { voiceHandler } from './handlers/voice.handler';
+import { socketAuthHandler } from './handlers/socket-auth.handler';
+import { chatHandler } from './handlers/chat.handler';
 
 export const initializeSocket = (io: Server) => {
     io.on('connection', (socket) => {
         // Parse JWT from handshake.auth or headers and set socket.data.userId.
         // Client sends: auth: () => ({ token: `Bearer ${token}` })
-        try {
-            let token: string | undefined;
-            const auth = socket.handshake.auth as Record<string, any> | undefined;
-            if (auth && typeof auth.token === 'string') token = auth.token;
 
-
-            if (!token) {
-                const h = socket.handshake.headers as Record<string, any> | undefined;
-                if (h) token = (h.authorization || h.Authorization) as string | undefined;
-            }
-
-            if (token && token.startsWith('Bearer ')) token = token.slice(7);
-
-            if (!token) {
-                console.log(`❌ No auth token provided for socket ${socket.id}`);
-                socket.emit('error', 'No auth token');
-                socket.disconnect(true);
+        socketAuthHandler(socket, (err?: any) => {
+            if (err) {
+                console.log(`❌ Socket auth error for ${socket.id}:`, err);
                 return;
             }
-
-            const payload = verifyAccessToken(token);
-            socket.data.userId = payload.userId;
-        } catch (err) {
-            console.log(`❌ Socket auth failed for ${socket.id}:`, err instanceof Error ? err.message : err);
-            socket.emit('error', 'Unauthorized');
-            socket.disconnect(true);
-            return;
-        }
+        });
 
         if (socket.data.userId) {
             socket.join(`user:${socket.data.userId}`);
@@ -48,7 +29,7 @@ export const initializeSocket = (io: Server) => {
         console.log(`✅ Client connected: ${socket.id} (user:${socket.data.userId})`);
 
         gameHandler(io, socket);
-        // chatHandler(io, socket);
+        chatHandler(io, socket);
         voiceHandler(io, socket);
         matchmakingHandler(io, socket);
 

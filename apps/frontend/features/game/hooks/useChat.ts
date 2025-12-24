@@ -20,15 +20,17 @@ export function useChat(gameId: string) {
         const socket = getSocketClient();
 
         const handleMessage = (payload: ChatMessage) => {
-            if (payload.gameId !== gameId) return;
+            const matchesGame = String(payload.gameId) === String(gameId);
+            if (!matchesGame) return;
             setMessages((prev) => [...prev, payload]);
         };
 
         const handleHistory = (payload: {
-            gameId: string;
+            gameId: string | number;
             messages: ChatMessage[];
         }) => {
-            if (payload.gameId !== gameId) return;
+            const matchesGame = String(payload.gameId) === String(gameId);
+            if (!matchesGame) return;
             setMessages(payload.messages);
         };
 

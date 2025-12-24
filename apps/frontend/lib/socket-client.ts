@@ -8,6 +8,8 @@ let socket: Socket | null = null;
 
 const BASE_WS_URL = process.env.NEXT_PUBLIC_BACKEND_WS_URL || 'ws://localhost:5000'; // e.g. ws://localhost:5000
 
+console.log('WebSocket URL:', BASE_WS_URL);
+
 export function getSocketClient(): Socket {
     if (!socket) {
         // read token and include in initial handshake

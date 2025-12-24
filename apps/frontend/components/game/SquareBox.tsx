@@ -80,7 +80,7 @@ export const SquareBox: React.FC<SquareProps> = ({
                 w-full h-full flex items-center justify-center
                 ${bgColor}
                 ${isDragOver ? 'ring-2 ring-inset ring-yellow-400' : ''}
-                ${isHighlighted ? 'ring-2 ring-inset ring-green-400' : ''}
+                 
                 transition-shadow
             `}
             onDragOver={handleDragOver}
@@ -88,6 +88,11 @@ export const SquareBox: React.FC<SquareProps> = ({
             onDrop={handleDrop}
             onClick={handleClick}
         >
+            {isHighlighted && (
+                <div className={`
+                    ${piece ? 'ring-4 ring-red-500' : 'absolute w-4 h-4 bg-black opacity-50 rounded-full'}
+                    `} />
+            )}
             {piece && (
                 <span
                     ref={pieceRef}

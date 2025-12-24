@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import type { ChatMessage } from '@/features/game/hooks/useChat';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +12,7 @@ type Props = {
     myUserId?: string;
 };
 
-export function ChatPanel({ messages, onSend, sending, myUserId }: Props) {
+function ChatPanelInner({ messages, onSend, sending, myUserId }: Props) {
     const [text, setText] = useState('');
     const bottomRef = useRef<HTMLDivElement | null>(null);
 
@@ -28,7 +28,7 @@ export function ChatPanel({ messages, onSend, sending, myUserId }: Props) {
     };
 
     return (
-        <div className="flex h-64 flex-col rounded-md border bg-card">
+        <div className="flex h-64 flex-col rounded-md border bg-card p-2">
             <div className="flex-1 space-y-1 overflow-y-auto p-2 text-xs">
                 {messages.map((m) => {
                     const isMe = m.userId === myUserId;
@@ -84,3 +84,16 @@ export function ChatPanel({ messages, onSend, sending, myUserId }: Props) {
         </div>
     );
 }
+
+function areEqual(prev: Props, next: Props) {
+    if (prev.sending !== next.sending) return false;
+    if (prev.myUserId !== next.myUserId) return false;
+    if (prev.messages.length !== next.messages.length) return false;
+    const prevLast = prev.messages[prev.messages.length - 1];
+    const nextLast = next.messages[next.messages.length - 1];
+    if (!prevLast && !nextLast) return true;
+    if (!prevLast || !nextLast) return false;
+    return prevLast.id === nextLast.id;
+}
+
+export const ChatPanel = React.memo(ChatPanelInner, areEqual);

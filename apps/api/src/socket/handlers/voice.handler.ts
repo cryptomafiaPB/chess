@@ -51,6 +51,7 @@ export function voiceHandler(io: Server, socket: Socket) {
                 userId,       // caller
                 targetUserId: opponentId,
             });
+
         } catch (err) {
             socket.emit('voice:error', {
                 gameId,

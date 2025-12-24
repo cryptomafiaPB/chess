@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { useGameState } from '@/features/game/hooks/useGameState';
 import { useMoveHints } from '@/features/game/hooks/useMoveHints';
 import { useClockDisplay } from '@/features/game/hooks/useClockDisplay';
+import { ClockPanel } from '@/components/game/ClockPanel';
 import { useChat } from '@/features/game/hooks/useChat';
 import { useVoice } from '@/features/game/hooks/useVoice';
 import { useMe } from '@/features/auth/hook/useAuth';
@@ -27,11 +28,7 @@ export default function GamePage() {
         to: string;
     } | null>(null);
 
-    const clocksDisplay = useClockDisplay(
-        state?.clocks,
-        state?.fen,
-        state?.status
-    );
+    // clocks are rendered by ClockPanel (keeps clock updates local)
 
     const { data: me } = useMe();
     const myUserId =
@@ -93,20 +90,20 @@ export default function GamePage() {
         setPendingPromotion(null);
     };
 
+    console.log("Main")
+
     return (
         <div className="flex h-[calc(100vh-3rem)] flex-col gap-4 p-4 md:flex-row">
             {/* Left: board + clocks */}
             <div className="flex flex-1 flex-col items-center rounded-md border bg-card p-4">
-                <div className="mb-2 flex w-full items-center justify-between text-xs text-muted-foreground">
-                    <div>
-                        White: {state.whitePlayer.username ?? state.whitePlayer.id}{' '}
-                        ({clocksDisplay.whiteFormatted})
-                    </div>
-                    <div>
-                        Black: {state.blackPlayer.username ?? state.blackPlayer.id}{' '}
-                        ({clocksDisplay.blackFormatted})
-                    </div>
-                </div>
+                <ClockPanel
+                    clocks={state.clocks}
+                    fen={state.fen}
+                    status={state.status}
+                    whiteLabel={state.whitePlayer.username ?? state.whitePlayer.id}
+                    blackLabel={state.blackPlayer.username ?? state.blackPlayer.id}
+                    presence={state.presence}
+                />
 
                 {error && (
                     <p className="mb-2 text-xs text-red-500">
@@ -158,7 +155,7 @@ export default function GamePage() {
             </div>
 
             {/* Right: sidebar */}
-            <div className="flex w-full max-w-xs flex-col gap-4">
+            <div className="flex w-full bg-gray-100 p-2 rounded-md sm:max-w-xs flex-col gap-4">
                 <div className="rounded-md border bg-card p-3 text-sm">
                     <div className="mb-1 font-medium">Players</div>
                     <p>

@@ -16,21 +16,33 @@ import friendRoutes from './routes/friend.route';
 
 const app = express();
 const httpServer = createServer(app);
-const io = new Server(httpServer, {
-    cors: {
-        origin: config.corsOrigin,
-        methods: ['GET', 'POST']
+
+
+const io = new Server(httpServer,
+    {
+        cors: {
+            origin: config.corsOrigin,
+            methods: ['GET', 'POST'],
+            credentials: true,
+        }
     }
-});
+);
 
 
 // Middleware
 app.use(cors({
     origin: config.corsOrigin,
-    credentials: true
+    credentials: true,
 }));
+
 app.use(express.json());
 app.use(cookieParser());
+app.use(express.urlencoded({ extended: true }));
+
+app.use((req, res, next) => {
+    console.log(`${req.method} ${req.url}`);
+    next();
+});
 
 // Health check
 app.get('/health', (req, res) => {
@@ -53,6 +65,6 @@ db; // Ensure Database is initialized
 app.use(errorHandler);
 
 // Start server
-httpServer.listen(config.port, () => {
+httpServer.listen(Number(config.port), '0.0.0.0', () => {
     console.log(`🚀 Server running on port ${config.port}`);
 });
