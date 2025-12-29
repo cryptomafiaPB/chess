@@ -19,38 +19,23 @@ const app = express();
 const httpServer = createServer(app);
 
 
-const io = new Server(httpServer
-    // ,
-    // {
-    //     cors: {
-    //         origin: config.corsOrigin,
-    //         methods: ['GET', 'POST'],
-    //         credentials: true,
-    //     }
-    // }
+const io = new Server(httpServer,
+    {
+        cors: {
+            origin: config.corsOrigin,
+            methods: ['GET', 'POST'],
+            credentials: true,
+        }
+    }
 );
 
 console.log('CORS Origins:', config.corsOrigin);
 
 // Middleware
-// app.use(cors({
-//     origin: config.corsOrigin,
-//     credentials: true,
-// }));
-
-
-const allowed = config.corsOrigin; // keep existing
-app.use((req, res, next) => {
-    const origin = req.headers.origin;
-    if (origin && origin.startsWith('https://') && origin.includes('ngrok.io')) {
-        res.setHeader('Access-Control-Allow-Origin', origin);
-        res.setHeader('Access-Control-Allow-Credentials', 'true');
-        return next();
-    }
-    // fallback to default cors:
-    cors({ origin: allowed, credentials: true })(req, res, next);
-});
-
+app.use(cors({
+    origin: config.corsOrigin,
+    credentials: true,
+}));
 
 app.use(express.json());
 app.use(cookieParser());
