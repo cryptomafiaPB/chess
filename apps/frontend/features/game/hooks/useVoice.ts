@@ -132,6 +132,11 @@ export function useVoice(gameId: string) {
     const createPeerConnection = useCallback(async () => {
         if (pcRef.current) return pcRef.current;
 
+        // Check if getUserMedia is available (requires HTTPS or localhost)
+        if (!navigator.mediaDevices?.getUserMedia) {
+            throw new Error('Voice chat requires HTTPS. Please use a secure connection.');
+        }
+
         const pc = new RTCPeerConnection({
             iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
         });
@@ -213,6 +218,11 @@ export function useVoice(gameId: string) {
             // If payload has targetUserId and it's NOT me, ignore
             // You can pass myUserId into useVoice via argument; for now assume backend already targets correctly.
             try {
+                // Check if getUserMedia is available before proceeding
+                if (!navigator.mediaDevices?.getUserMedia) {
+                    throw new Error('Voice chat requires HTTPS. Please use a secure connection.');
+                }
+
                 setState('connecting');
                 remoteUserIdRef.current = payload.userId; // the caller
                 const pc = await createPeerConnection();
@@ -236,22 +246,48 @@ export function useVoice(gameId: string) {
             // If you have myUserId, check: if (payload.toUserId && payload.toUserId !== myUserId) return;
 
             try {
+                // Check if getUserMedia is available before proceeding
+                if (!navigator.mediaDevices?.getUserMedia) {
+                    throw new Error('Voice chat requires HTTPS. Please use a secure connection.');
+                }
+
                 setState('connecting');
                 remoteUserIdRef.current = payload.fromUserId;
                 const pc = await createPeerConnection();
 
+                const currentState = pc.signalingState as string;
                 console.log('[voice] offer received', {
                     type: payload.sdp?.type,
-                    signalingState: pc.signalingState,
+                    signalingState: currentState,
                     hasRemote: !!pc.currentRemoteDescription,
                 });
 
-                if (payload.sdp?.type === 'offer' && !pc.currentRemoteDescription) {
-                    await pc.setRemoteDescription(payload.sdp);
-                } else {
-                    console.log('[voice] ignoring offer, PC already has remote');
+                // Only set remote description if it's a valid offer and we're in a state to receive it
+                if (payload.sdp?.type !== 'offer') {
+                    console.log('[voice] invalid offer payload', payload.sdp);
+                    return;
                 }
 
+                // Handle based on current signaling state
+                if (currentState === 'stable') {
+                    // Normal case: we're idle and ready to receive an offer
+                    await pc.setRemoteDescription(payload.sdp);
+                } else if (currentState === 'have-local-offer') {
+                    // Glare situation: both sides sent offers simultaneously
+                    // Use "polite peer" strategy - lower userId loses and accepts remote offer
+                    console.log('[voice] glare detected, rolling back local offer');
+                    await pc.setLocalDescription({ type: 'rollback' });
+                    await pc.setRemoteDescription(payload.sdp);
+                } else if (currentState === 'have-remote-offer') {
+                    // Already have an offer, ignore duplicate
+                    console.log('[voice] ignoring duplicate offer');
+                    return;
+                } else {
+                    console.log('[voice] cannot accept offer in state:', currentState);
+                    return;
+                }
+
+                // Now we should be in have-remote-offer state, create answer
                 const answer = await pc.createAnswer();
                 await pc.setLocalDescription(answer);
                 socket.emit('voice:answer', {
@@ -369,6 +405,13 @@ export function useVoice(gameId: string) {
     }, [gameId, createPeerConnection, cleanup]);
 
     const startVoice = useCallback(() => {
+        // Check if voice chat is supported (requires HTTPS or localhost)
+        if (!navigator.mediaDevices?.getUserMedia) {
+            setError('Voice chat requires HTTPS. Please use a secure connection.');
+            setState('error');
+            return;
+        }
+
         const socket = getSocketClient();
         setError(null);
         setState('connecting');
