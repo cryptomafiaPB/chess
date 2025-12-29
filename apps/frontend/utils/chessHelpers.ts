@@ -48,3 +48,9 @@ export const getSquareColorWithSan = (san: string): string => {
     const rank = 8 - parseInt(san[1], 10);
     return getSquareColor(rank, file);
 };
+
+export const getSideToMoveFromFen = (fen: string): 'white' | 'black' => {
+    const parts = fen.split(' ');
+    const token = parts[1]?.trim().toLowerCase();
+    return token === 'b' ? 'black' : 'white';
+};

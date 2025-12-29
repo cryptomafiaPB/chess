@@ -9,6 +9,8 @@ import { games } from 'schema/game.schema';
 import { redis } from 'db/redis';
 import { TIME_CONTROLS, type TimeControl } from '../utils/timeControl';
 import { ratingService } from './rating.service';
+import { profileService } from './profile.service';
+import { Chess } from 'chess.js';
 
 type GameResult = 'white_wins' | 'black_wins' | 'draw';
 
@@ -18,6 +20,13 @@ interface MakeMoveInput {
     from: string;
     to: string;
     promotion?: string;
+}
+
+interface StoredMove {
+    from: string;
+    to: string;
+    san: string;
+    promotion?: string | undefined;
 }
 
 export class GameService {
@@ -93,6 +102,22 @@ export class GameService {
         return { gameRow, game, currentFen: game.getBoardFen() };
     }
 
+    private moveHistoryKey(gameId: string) {
+        return `moves:${gameId}`;
+    }
+
+    private async addMoveToHistory(gameId: string, move: StoredMove): Promise<void> {
+        const key = this.moveHistoryKey(gameId);
+        await redis.rpush(key, JSON.stringify(move));
+        await redis.expire(key, 60 * 60 * 6);
+    }
+
+    async getMoveHistory(gameId: string): Promise<StoredMove[]> {
+        const key = this.moveHistoryKey(gameId);
+        const moves = await redis.lrange(key, 0, -1);
+        return moves.map(m => JSON.parse(m));
+    }
+
     private async saveFen(gameId: string, fen: string) {
         await redis.hset(this.gameKey(gameId), { fen });
     }
@@ -103,7 +128,6 @@ export class GameService {
         const isWhite = Number(input.userId) === Number(gameRow.whitePlayerId);
         const isBlack = Number(input.userId) === Number(gameRow.blackPlayerId);
 
-        console.log('Making move:', input, 'isWhite:', isWhite, 'isBlack:', isBlack, "\ngameRow:", gameRow, '\ncurrentFen:', await this.getFen(input.gameId));
         if (!isWhite && !isBlack) throw new Error('Not a player in this game');
 
         const expectedColor = isWhite ? Color.WHITE : Color.BLACK;
@@ -154,16 +178,47 @@ export class GameService {
                 gameOver: true,
                 result,
                 resultReason,
-                clocks: { white: whiteMs, black: blackMs }
+                clocks: {
+                    white: whiteMs,
+                    black: blackMs,
+                    increment: clocks.incrementMs,
+                    lastMoveAt: now,
+                    activeColor: expectedColor === Color.WHITE ? 'black' : 'white'
+                }
             };
         }
         // ---------------------
+
+        // Use chess.js to compute SAN notation before making the move
+        const currentFen = game.getBoardFen();
+        const chessForSan = new Chess(currentFen);
+        let san = '';
+        try {
+            const chessMove = chessForSan.move({
+                from: input.from,
+                to: input.to,
+                promotion: input.promotion as any
+            });
+            if (chessMove) {
+                san = chessMove.san;
+            }
+        } catch (e) {
+            // Fall through to let the game validate
+        }
 
         const move = new Move(input.from, input.to, input.promotion);
         const ok = game.playMove(move);
         if (!ok) throw new Error('Illegal move');
 
         const fen = game.getBoardFen();
+
+        // Store move with SAN in history
+        await this.addMoveToHistory(input.gameId, {
+            from: input.from,
+            to: input.to,
+            san,
+            promotion: input.promotion
+        });
 
         // Next side to move
         const nextColor: 'white' | 'black' =
@@ -211,11 +266,17 @@ export class GameService {
 
         return {
             fen,
-            move: { from: input.from, to: input.to, promotion: input.promotion },
+            move: { from: input.from, to: input.to, san, promotion: input.promotion },
             gameOver: !!result,
             result,
             resultReason,
-            clocks: { white: whiteMs, black: blackMs }
+            clocks: {
+                white: whiteMs,
+                black: blackMs,
+                increment: clocks.incrementMs,
+                lastMoveAt: now,
+                activeColor: nextColor
+            }
         };
     }
 
@@ -272,6 +333,36 @@ export class GameService {
         return { result, resultReason: 'resign' };
     }
 
+    async endGameAsDraw(gameId: string) {
+        const gameRow = await this.getGameRow(gameId);
+
+        if (gameRow.status !== 'active') {
+            throw new Error('Game is not active');
+        }
+
+        const result: GameResult = 'draw';
+
+        await db
+            .update(games)
+            .set({
+                status: 'completed',
+                result,
+                resultReason: 'agreement',
+                endedAt: new Date()
+            })
+            .where(eq(games.id, Number(gameId)));
+
+        await redis.hset(this.gameKey(gameId), {
+            status: 'completed',
+            result,
+            resultReason: 'agreement'
+        });
+
+        await ratingService.updateRatingsForGame(gameId);
+
+        return { result, resultReason: 'agreement' };
+    }
+
     private async getClocks(gameId: string) {
         const key = this.gameKey(gameId);
         const [
@@ -324,34 +415,144 @@ export class GameService {
             white: clocks.whiteMs,
             black: clocks.blackMs,
             increment: clocks.incrementMs,
+            lastMoveAt: clocks.lastMoveAt,
             activeColor: clocks.activeColor
         };
     }
 
-    async getFen(gameId: string): Promise<string> {
+    async getFen(gameId: string): Promise<string | null> {
         const key = this.gameKey(gameId);
         const fen = await redis.hget(key, 'fen');
-        if (!fen) {
-            const { game } = await this.loadGameObject(gameId);
-            return game.getBoardFen();
-        }
-        return fen;
+        return fen || null;
+    }
+
+    // Check if Redis has live game data
+    async hasLiveGameData(gameId: string): Promise<boolean> {
+        const key = this.gameKey(gameId);
+        const exists = await redis.exists(key);
+        return exists === 1;
     }
 
     async getFullState(gameId: string) {
         const gameRow = await this.getGameRow(gameId);
-        const fen = await this.getFen(gameId);
+
+        // Check if game has live data in Redis
+        const hasLiveData = await this.hasLiveGameData(gameId);
+
+        // For completed games without live data, return limited info
+        if (!hasLiveData && gameRow.status === 'completed') {
+            // Fetch player profiles
+            const [whiteProfile, blackProfile] = await Promise.all([
+                profileService.getProfile(gameRow.whitePlayerId.toString()),
+                profileService.getProfile(gameRow.blackPlayerId.toString())
+            ]);
+
+            const whiteRating = whiteProfile.ratings?.find(
+                (r: any) => r.timeControl === gameRow.timeControl
+            );
+            const blackRating = blackProfile.ratings?.find(
+                (r: any) => r.timeControl === gameRow.timeControl
+            );
+
+            return {
+                gameId,
+                fen: gameRow.initialFen === 'startpos'
+                    ? 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
+                    : gameRow.initialFen,
+                clocks: { white: 0, black: 0, increment: 0, lastMoveAt: 0, activeColor: 'white' as const },
+                moveHistory: [], // Move history expired
+                whitePlayerId: gameRow.whitePlayerId,
+                blackPlayerId: gameRow.blackPlayerId,
+                whiteUsername: whiteProfile.username,
+                blackUsername: blackProfile.username,
+                whiteRating: whiteRating?.rating ?? 1200,
+                blackRating: blackRating?.rating ?? 1200,
+                whiteAvatarUrl: whiteProfile.avatar_url,
+                blackAvatarUrl: blackProfile.avatar_url,
+                timeControl: gameRow.timeControl,
+                status: gameRow.status,
+                result: gameRow.result,
+                resultReason: gameRow.resultReason,
+                isExpired: true // Flag to indicate game data has expired
+            };
+        }
+
+        // For active games or completed games with live data
+        const fen = await this.getFen(gameId) || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
         const clocks = await this.getClockState(gameId);
+        const moveHistory = await this.getMoveHistory(gameId);
+
+        // Fetch player profiles (with caching via profileService)
+        const [whiteProfile, blackProfile] = await Promise.all([
+            profileService.getProfile(gameRow.whitePlayerId.toString()),
+            profileService.getProfile(gameRow.blackPlayerId.toString())
+        ]);
+
+        // Get player ratings for the game's time control
+        const whiteRating = whiteProfile.ratings?.find(
+            (r: any) => r.timeControl === gameRow.timeControl
+        );
+        const blackRating = blackProfile.ratings?.find(
+            (r: any) => r.timeControl === gameRow.timeControl
+        );
 
         return {
             gameId,
             fen,
             clocks,
+            moveHistory,
             whitePlayerId: gameRow.whitePlayerId,
             blackPlayerId: gameRow.blackPlayerId,
+            whiteUsername: whiteProfile.username,
+            blackUsername: blackProfile.username,
+            whiteRating: whiteRating?.rating ?? 1200,
+            blackRating: blackRating?.rating ?? 1200,
+            whiteAvatarUrl: whiteProfile.avatar_url,
+            blackAvatarUrl: blackProfile.avatar_url,
+            timeControl: gameRow.timeControl,
             status: gameRow.status,
             result: gameRow.result,
-            resultReason: gameRow.resultReason
+            resultReason: gameRow.resultReason,
+            isExpired: false
+        };
+    }
+
+    // Get static game details (for REST API - doesn't include dynamic state)
+    async getGameDetails(gameId: string) {
+        const gameRow = await this.getGameRow(gameId);
+
+        // Fetch player profiles
+        const [whiteProfile, blackProfile] = await Promise.all([
+            profileService.getProfile(gameRow.whitePlayerId.toString()),
+            profileService.getProfile(gameRow.blackPlayerId.toString())
+        ]);
+
+        const whiteRating = whiteProfile.ratings?.find(
+            (r: any) => r.timeControl === gameRow.timeControl
+        );
+        const blackRating = blackProfile.ratings?.find(
+            (r: any) => r.timeControl === gameRow.timeControl
+        );
+
+        return {
+            gameId,
+            timeControl: gameRow.timeControl,
+            mode: gameRow.mode,
+            startedAt: gameRow.startedAt,
+            whitePlayer: {
+                id: gameRow.whitePlayerId,
+                username: whiteProfile.username,
+                rating: whiteRating?.rating ?? 1200,
+                avatarUrl: whiteProfile.avatar_url,
+                country: whiteProfile.profile.country
+            },
+            blackPlayer: {
+                id: gameRow.blackPlayerId,
+                username: blackProfile.username,
+                rating: blackRating?.rating ?? 1200,
+                avatarUrl: blackProfile.avatar_url,
+                country: blackProfile.country
+            }
         };
     }
 }

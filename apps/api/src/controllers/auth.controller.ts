@@ -156,10 +156,22 @@ export class AuthController {
 
     async me(req: Request, res: Response) {
         try {
+            const userId = req.user?.userId;
+
+            if (!userId) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'Not authenticated'
+                });
+            }
+
+            // Get full user info with profile
+            const user = await authService.getUserWithProfile(userId);
+
             res.status(200).json({
                 success: true,
                 data: {
-                    user: req.user
+                    user
                 }
             });
         } catch (error) {

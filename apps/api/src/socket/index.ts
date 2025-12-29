@@ -10,6 +10,7 @@ import { voiceHandler } from './handlers/voice.handler';
 import { socketAuthHandler } from './handlers/socket-auth.handler';
 import { chatHandler } from './handlers/chat.handler';
 import { reconnectionHandler } from './handlers/reconnection.handler';
+import { rematchHandler } from './handlers/rematch.handler';
 
 export const initializeSocket = (io: Server) => {
     io.on('connection', async (socket) => {
@@ -33,6 +34,7 @@ export const initializeSocket = (io: Server) => {
         chatHandler(io, socket);
         voiceHandler(io, socket);
         matchmakingHandler(io, socket);
+        rematchHandler(io, socket);
 
         // Handle reconnection - restore game sessions
         await reconnectionHandler(io, socket);

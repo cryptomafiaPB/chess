@@ -180,6 +180,34 @@ export class AuthService {
         const storedToken = await redis.get(`refresh_token:${userId}`);
         return storedToken === token;
     }
+
+    // Get user with profile data
+    async getUserWithProfile(userId: string) {
+        const user = await db.query.users.findFirst({
+            where: eq(users.id, Number(userId))
+        });
+
+        if (!user) {
+            throw new Error('User not found');
+        }
+
+        const profile = await db.query.profiles.findFirst({
+            where: eq(profiles.userId, Number(userId))
+        });
+
+        return {
+            id: user.id,
+            email: user.email,
+            username: user.username,
+            avatar_url: user.avatar_url,
+            createdAt: user.createdAt,
+            profile: profile ? {
+                bio: profile.bio,
+                country: profile.country,
+                isOnline: profile.isOnline
+            } : null
+        };
+    }
 }
 
 export const authService = new AuthService();

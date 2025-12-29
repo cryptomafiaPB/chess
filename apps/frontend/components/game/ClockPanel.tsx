@@ -13,7 +13,7 @@ type Props = {
 };
 
 export function ClockPanel({ clocks, fen, status, whiteLabel, blackLabel, presence }: Props) {
-    const display = useClockDisplay(clocks ?? { white: 0, black: 0 }, fen ?? '', status ?? '');
+    const display = useClockDisplay(clocks ?? { white: 0, black: 0 }, status ?? '');
 
     return (
         <div className="mb-2 flex w-full items-center justify-between text-xs text-muted-foreground">

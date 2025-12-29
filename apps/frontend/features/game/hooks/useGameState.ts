@@ -7,27 +7,24 @@ export type GameRole = 'white' | 'black' | 'spectator';
 
 export type PresenceStatus = 'online' | 'offline';
 
-export interface PlayerInfo {
-    id: string;
-    username?: string;
-    rating?: number;
-}
-
 export interface ClockState {
     white: number;
     black: number;
+    increment?: number;
+    lastMoveAt?: number;
+    activeColor?: 'white' | 'black';
 }
 
+// Dynamic game state - changes during gameplay
 export interface GameState {
     gameId: string;
     fen: string;
     role: GameRole;
-    whitePlayer: PlayerInfo;
-    blackPlayer: PlayerInfo;
     status: 'active' | 'completed' | 'aborted';
     result?: string | null;
     resultReason?: string | null;
     clocks: ClockState;
+    lastMove?: { from: string; to: string; promotion?: string | null } | null;
     presence: {
         white: PresenceStatus;
         black: PresenceStatus;
@@ -49,23 +46,17 @@ export function useGameState(gameId: string) {
                 gameId: payload.gameId,
                 fen: payload.fen,
                 role: payload.role,
-                whitePlayer: {
-                    id: payload.whitePlayerId,
-                    username: payload.whiteUsername,
-                    rating: payload.whiteRating,
-                },
-                blackPlayer: {
-                    id: payload.blackPlayerId,
-                    username: payload.blackUsername,
-                    rating: payload.blackRating,
-                },
                 status: payload.status,
                 result: payload.result,
                 resultReason: payload.resultReason,
                 clocks: {
                     white: payload.clocks?.white ?? 0,
                     black: payload.clocks?.black ?? 0,
+                    increment: payload.clocks?.increment,
+                    lastMoveAt: payload.clocks?.lastMoveAt,
+                    activeColor: payload.clocks?.activeColor,
                 },
+                lastMove: payload.move ?? null,
                 presence: {
                     white: payload.presence?.white ?? 'online',
                     black: payload.presence?.black ?? 'online',
@@ -84,9 +75,13 @@ export function useGameState(gameId: string) {
                     status: payload.gameOver ? 'completed' : prev.status,
                     result: payload.result ?? prev.result,
                     resultReason: payload.resultReason ?? prev.resultReason,
+                    lastMove: payload.move ?? prev.lastMove ?? null,
                     clocks: {
                         white: payload.clocks?.white ?? prev.clocks.white,
                         black: payload.clocks?.black ?? prev.clocks.black,
+                        increment: payload.clocks?.increment ?? prev.clocks.increment,
+                        lastMoveAt: payload.clocks?.lastMoveAt ?? prev.clocks.lastMoveAt,
+                        activeColor: payload.clocks?.activeColor ?? prev.clocks.activeColor,
                     },
                 };
             });

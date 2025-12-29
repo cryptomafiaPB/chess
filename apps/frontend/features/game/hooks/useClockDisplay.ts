@@ -15,34 +15,45 @@ function formatMs(ms: number): string {
 
 export function useClockDisplay(
     clocks: ClockState | null | undefined,
-    fen: string | null | undefined,
     status: string | null | undefined
 ) {
     const initial: ClockState = clocks ?? { white: 0, black: 0 };
     const [display, setDisplay] = useState<ClockState>(initial);
 
+    // Keep display in sync when server clocks change
     useEffect(() => {
         setDisplay(clocks ?? { white: 0, black: 0 });
-    }, [clocks?.white, clocks?.black]);
+    }, [clocks?.white, clocks?.black, clocks?.lastMoveAt, clocks?.activeColor]);
 
+    // Client-side ticking using lastMoveAt and activeColor to reduce drift
     useEffect(() => {
-        if (status !== 'active' || !fen) return;
+        if (status !== 'active') return;
+        if (!clocks || !clocks.activeColor || !clocks.lastMoveAt) return;
 
-        const parts = fen.split(' ');
-        const turn = parts[1]; // 'w' or 'b'
+        let rafId: number;
+        const baseWhite = clocks.white;
+        const baseBlack = clocks.black;
+        const { activeColor, lastMoveAt } = clocks;
 
-        const interval = setInterval(() => {
-            setDisplay((prev) => {
-                const delta = 1000;
-                return {
-                    white: prev.white - (turn === 'w' ? delta : 0),
-                    black: prev.black - (turn === 'b' ? delta : 0),
-                };
-            });
-        }, 1000);
+        const tick = () => {
+            const now = Date.now();
+            const elapsed = Math.max(0, now - lastMoveAt);
 
-        return () => clearInterval(interval);
-    }, [fen, status]);
+            const next: ClockState = {
+                white: activeColor === 'white' ? baseWhite - elapsed : baseWhite,
+                black: activeColor === 'black' ? baseBlack - elapsed : baseBlack,
+                increment: clocks.increment,
+                lastMoveAt,
+                activeColor,
+            };
+
+            setDisplay(next);
+            rafId = window.requestAnimationFrame(tick);
+        };
+
+        rafId = window.requestAnimationFrame(tick);
+        return () => cancelAnimationFrame(rafId);
+    }, [clocks?.white, clocks?.black, clocks?.activeColor, clocks?.lastMoveAt, clocks?.increment, status]);
 
     return {
         white: display.white,

@@ -14,7 +14,7 @@ function expectedScore(Ra: number, Rb: number): number {
 export class RatingService {
     async updateRatingsForGame(gameId: string) {
         const game = await db.query.games.findFirst({
-            where: eq(games.id, gameId)
+            where: eq(games.id, Number(gameId))
         });
 
         if (!game || game.status !== 'completed' || !game.result) return;
@@ -23,7 +23,7 @@ export class RatingService {
             .select()
             .from(ratings)
             .where(and(
-                eq(ratings.userId, parseInt(game.whitePlayerId)),
+                eq(ratings.userId, Number(game.whitePlayerId)),
                 eq(ratings.timeControl, game.timeControl)
             ));
 
@@ -31,7 +31,7 @@ export class RatingService {
             .select()
             .from(ratings)
             .where(and(
-                eq(ratings.userId, parseInt(game.blackPlayerId)),
+                eq(ratings.userId, Number(game.blackPlayerId)),
                 eq(ratings.timeControl, game.timeControl)
             ));
 

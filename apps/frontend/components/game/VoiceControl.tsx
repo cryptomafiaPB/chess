@@ -8,13 +8,13 @@ type Props = {
     error?: string | null;
     isMutedLocal: boolean;
     isMutedRemote: boolean;
-    localLevel: number;
-    remoteLevel: number;
+    localLevel?: number;
+    remoteLevel?: number;
     canUseVoice: boolean;
     onStart: () => void;
     onStop: () => void;
     onToggleMute: () => void;
-    remoteAudioRef: RefObject<HTMLAudioElement>;
+    remoteAudioRef: RefObject<HTMLAudioElement | null>;
 };
 
 export function VoiceControls({
@@ -22,8 +22,8 @@ export function VoiceControls({
     error,
     isMutedLocal,
     isMutedRemote,
-    localLevel,
-    remoteLevel,
+    localLevel = 0,
+    remoteLevel = 0,
     canUseVoice,
     onStart,
     onStop,

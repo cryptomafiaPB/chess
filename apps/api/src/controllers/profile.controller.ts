@@ -127,6 +127,24 @@ export class ProfileController {
             });
         }
     }
+
+    async getDashboard(req: Request, res: Response) {
+        try {
+            const userId = req.user!.userId;
+
+            const dashboard = await profileService.getDashboard(userId);
+
+            res.json({
+                success: true,
+                data: dashboard
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: error instanceof Error ? error.message : 'Failed to fetch dashboard'
+            });
+        }
+    }
 }
 
 export const profileController = new ProfileController();

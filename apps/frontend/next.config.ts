@@ -14,6 +14,21 @@ const nextConfig: NextConfig = {
         hostname: 'raw.githubusercontent.com',
         pathname: '/lichess-org/lila/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'static.vecteezy.com',
+        pathname: '/system/resources/thumbnails/068/599/133/large/editorial-one-piece-symbol-waving-flag-green-screen-background-free-video.jpg',
+      },
+      {
+        protocol: 'https',
+        hostname: 'github.com',
+        pathname: '/hampusborgos/country-flags/tree/main/svg/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'flagcdn.com',
+        pathname: '/w320/**',
+      },
     ],
   },
   allowedDevOrigins: [
