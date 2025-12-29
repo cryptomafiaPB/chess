@@ -8,5 +8,5 @@ export const config = {
     redisUrl: process.env.REDIS_URL || 'redis://localhost:6379',
     jwtSecret: process.env.JWT_SECRET!,
     jwtExpiry: process.env.JWT_EXPIRY || '7d',
-    corsOrigin: [process.env.CORS_ORIGIN || 'http://localhost:3000', 'http://10.214.120.209:3000', 'http://172.18.208.1:3000', '*.ngrok-free.dev'],
+    corsOrigin: [process.env.CORS_ORIGIN || 'http://localhost:3000', 'http://10.214.120.209:3000', 'http://172.18.208.1:3000', 'https://chess-master.vercel.app'],
 };
