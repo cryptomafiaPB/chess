@@ -38,6 +38,8 @@ class InactivityService {
 
         const now = Date.now();
 
+        console.log(`[Inactivity] Starting timer for ${activeColor} in game ${gameId}, turnStartedAt: ${now}`);
+
         // Store inactivity state in Redis
         await redis.hset(this.inactivityKey(gameId), {
             activeColor,
@@ -74,6 +76,8 @@ class InactivityService {
      */
     private async startWarningCountdown(gameId: string, activeColor: 'white' | 'black', io: Server) {
         let remainingSeconds = WARNING_THRESHOLD_MS / 1000;
+        // Track the epoch to detect if timer was cancelled
+        const startEpoch = Date.now();
 
         // Emit initial warning
         io.to(`game:${gameId}`).emit('game:inactivity-warning', {
@@ -84,7 +88,14 @@ class InactivityService {
         });
 
         // Start countdown interval
-        const interval = setInterval(() => {
+        const interval = setInterval(async () => {
+            // Check if timer was cancelled (interval no longer in map or different)
+            const currentInterval = this.countdownIntervals.get(gameId);
+            if (!currentInterval || currentInterval !== interval) {
+                clearInterval(interval);
+                return;
+            }
+
             remainingSeconds--;
 
             if (remainingSeconds > 0) {
@@ -110,11 +121,21 @@ class InactivityService {
         this.clearTimers(gameId);
 
         try {
+            // Verify from Redis that this timeout is still valid
+            // (the turn might have changed since the timeout was scheduled)
+            const currentState = await this.getInactivityState(gameId);
+            if (!currentState || currentState.activeColor !== activeColor) {
+                console.log(`[Inactivity] Ignoring stale timeout for ${activeColor} in game ${gameId}`);
+                return;
+            }
+
             // Check if game is still active
             const gameRow = await gameService.getGameRow(gameId);
             if (gameRow.status !== 'active') {
                 return; // Game already ended
             }
+
+            console.log(`[Inactivity] Timeout! ${activeColor} loses game ${gameId}`);
 
             // Determine result - the inactive player loses
             const result = activeColor === 'white' ? 'black_wins' : 'white_wins';
@@ -162,6 +183,11 @@ class InactivityService {
      * Cancel inactivity timer (called when a move is made or game ends)
      */
     async cancelInactivityTimer(gameId: string, io: Server) {
+        console.log(`[Inactivity] Cancelling timer for game ${gameId}`);
+
+        // Clear Redis state FIRST to invalidate any callbacks that might check it
+        await redis.del(this.inactivityKey(gameId));
+
         this.clearTimers(gameId);
 
         // Notify clients that inactivity timer was cancelled
@@ -169,9 +195,6 @@ class InactivityService {
             gameId,
             serverTime: Date.now()
         });
-
-        // Clear Redis state
-        await redis.del(this.inactivityKey(gameId));
     }
 
     /**

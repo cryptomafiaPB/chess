@@ -14,6 +14,7 @@ export interface InactivityState {
 }
 
 const INACTIVITY_TIMEOUT_MS = 60 * 1000;
+const WARNING_THRESHOLD_MS = 30 * 1000;
 
 export function useInactivityTimer(gameId: string, gameStatus: string) {
     const [state, setState] = useState<InactivityState>({
@@ -27,6 +28,8 @@ export function useInactivityTimer(gameId: string, gameStatus: string) {
     });
 
     const timerRef = useRef<NodeJS.Timeout | null>(null);
+    // Epoch counter to invalidate stale interval updates
+    const epochRef = useRef<number>(0);
 
     // Local countdown using server-synchronized time
     useEffect(() => {
@@ -38,20 +41,31 @@ export function useInactivityTimer(gameId: string, gameStatus: string) {
             return;
         }
 
-        timerRef.current = setInterval(() => {
-            setState(prev => {
-                if (!prev.turnStartedAt) return prev;
+        // Capture the current epoch - if it changes, this interval is stale
+        const currentEpoch = epochRef.current;
+        const startedAt = state.turnStartedAt;
 
-                // Use server-synchronized time
-                const serverNow = getServerTime();
-                const elapsed = serverNow - prev.turnStartedAt;
-                const remainingMs = Math.max(0, INACTIVITY_TIMEOUT_MS - elapsed);
+        timerRef.current = setInterval(() => {
+            // If epoch changed, this interval is stale - do nothing
+            if (epochRef.current !== currentEpoch) {
+                return;
+            }
+
+            // Use server-synchronized time
+            const serverNow = getServerTime();
+            const elapsed = serverNow - startedAt;
+            const remainingMs = Math.max(0, INACTIVITY_TIMEOUT_MS - elapsed);
+            const isWarning = remainingMs <= WARNING_THRESHOLD_MS;
+
+            setState(prev => {
+                // Double-check epoch hasn't changed
+                if (epochRef.current !== currentEpoch) return prev;
 
                 return {
                     ...prev,
                     remainingMs,
-                    isWarning: remainingMs <= 30000,
-                    warningSeconds: remainingMs <= 30000 ? Math.ceil(remainingMs / 1000) : null
+                    isWarning,
+                    warningSeconds: isWarning ? Math.ceil(remainingMs / 1000) : null
                 };
             });
         }, 100); // Update every 100ms for smooth animation
@@ -72,17 +86,31 @@ export function useInactivityTimer(gameId: string, gameStatus: string) {
             activeColor: 'white' | 'black';
             turnStartedAt: number;
             timeoutAt: number;
+            serverTime?: number;
         }) => {
             if (payload.gameId !== gameId) return;
+
+            // Increment epoch to invalidate any running interval
+            epochRef.current++;
+
+            // Use the server's turnStartedAt directly - this is the source of truth
+            // Calculate remaining time based on server time if provided
+            const serverNow = payload.serverTime ?? getServerTime();
+            const elapsed = Math.max(0, serverNow - payload.turnStartedAt);
+            const remainingMs = Math.max(0, INACTIVITY_TIMEOUT_MS - elapsed);
+
+            console.log('[Inactivity] Start timer for', payload.activeColor,
+                'turnStartedAt:', payload.turnStartedAt,
+                'remaining:', remainingMs, 'ms');
 
             setState({
                 isActive: true,
                 activeColor: payload.activeColor,
                 turnStartedAt: payload.turnStartedAt,
                 timeoutAt: payload.timeoutAt,
-                remainingMs: INACTIVITY_TIMEOUT_MS,
-                warningSeconds: null,
-                isWarning: false
+                remainingMs,
+                warningSeconds: remainingMs <= WARNING_THRESHOLD_MS ? Math.ceil(remainingMs / 1000) : null,
+                isWarning: remainingMs <= WARNING_THRESHOLD_MS
             });
         };
 
@@ -94,9 +122,16 @@ export function useInactivityTimer(gameId: string, gameStatus: string) {
         }) => {
             if (payload.gameId !== gameId) return;
 
+            // Increment epoch to invalidate any running interval
+            epochRef.current++;
+
             // Use server time if provided, otherwise estimate
             const serverNow = payload.serverTime ?? getServerTime();
             const turnStartedAt = serverNow - (INACTIVITY_TIMEOUT_MS - payload.remainingMs);
+            const isWarning = payload.remainingMs <= WARNING_THRESHOLD_MS;
+
+            console.log('[Inactivity] Sync for', payload.activeColor,
+                'remaining:', payload.remainingMs, 'ms');
 
             setState({
                 isActive: true,
@@ -104,8 +139,8 @@ export function useInactivityTimer(gameId: string, gameStatus: string) {
                 turnStartedAt,
                 timeoutAt: serverNow + payload.remainingMs,
                 remainingMs: payload.remainingMs,
-                warningSeconds: payload.remainingMs <= 30000 ? Math.ceil(payload.remainingMs / 1000) : null,
-                isWarning: payload.remainingMs <= 30000
+                warningSeconds: isWarning ? Math.ceil(payload.remainingMs / 1000) : null,
+                isWarning
             });
         };
 
@@ -116,15 +151,31 @@ export function useInactivityTimer(gameId: string, gameStatus: string) {
         }) => {
             if (payload.gameId !== gameId) return;
 
-            setState(prev => ({
-                ...prev,
-                isWarning: true,
-                warningSeconds: payload.remainingSeconds
-            }));
+            // Only update if the warning is for the current active player
+            // This prevents stale warnings from a previous turn affecting the current state
+            setState(prev => {
+                // Ignore if timer is not active or warning is for different color
+                if (!prev.isActive || prev.activeColor !== payload.activeColor) {
+                    console.log('[Inactivity] Ignoring stale warning for', payload.activeColor,
+                        'current active:', prev.activeColor);
+                    return prev;
+                }
+
+                return {
+                    ...prev,
+                    isWarning: true,
+                    warningSeconds: payload.remainingSeconds
+                };
+            });
         };
 
         const handleInactivityCancelled = (payload: { gameId: string }) => {
             if (payload.gameId !== gameId) return;
+
+            // Increment epoch to invalidate any running interval
+            epochRef.current++;
+
+            console.log('[Inactivity] Timer cancelled');
 
             setState({
                 isActive: false,
