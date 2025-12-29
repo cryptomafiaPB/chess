@@ -61,10 +61,12 @@ export default function GamePage() {
     // Derived state (computed from state, safe to use before/after loading check)
     const lastMoveSquares = state?.lastMove ? [state.lastMove.from, state.lastMove.to] : [];
     const isPlayer = state?.role === 'white' || state?.role === 'black';
-    const gameOver = state?.status !== 'active';
+    const isWaiting = state?.status === 'waiting';
+    const gameOver = state?.status === 'completed' || state?.status === 'aborted';
     const sideToMove = state?.clocks?.activeColor ?? (state?.fen ? getSideToMoveFromFen(state.fen) : 'white');
     const isMyTurn = isPlayer && sideToMove === state?.role;
-    const canMove = isPlayer && !gameOver && isMyTurn;
+    // Can only move when game is active (not waiting, not over)
+    const canMove = isPlayer && state?.status === 'active' && isMyTurn;
     const orientation: 'white' | 'black' = state?.role === 'black' ? 'black' : 'white';
     const playerColor = state?.role === 'white' || state?.role === 'black' ? state.role : null;
 
@@ -214,6 +216,19 @@ export default function GamePage() {
 
     return (
         <div className="fixed inset-0 bg-[#312e2b] overflow-hidden">
+            {/* Waiting for opponent overlay */}
+            {isWaiting && (
+                <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+                    <div className="flex flex-col items-center gap-4 text-center px-6 max-w-sm">
+                        <div className="w-12 h-12 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                        <h2 className="text-xl font-bold text-white">Waiting for opponent...</h2>
+                        <p className="text-sm text-slate-400">
+                            Game will begin when both players are ready
+                        </p>
+                    </div>
+                </div>
+            )}
+
             {/* Expired Game Notice Banner */}
             {isExpiredGame && (
                 <div className="absolute top-0 left-0 right-0 z-50 bg-amber-500/90 text-black px-4 py-2 text-center text-sm font-medium">
@@ -554,8 +569,8 @@ export default function GamePage() {
                                         key={piece}
                                         onClick={() => handleChoosePromotion(piece)}
                                         className={`w-14 h-14 rounded-xl transition-colors flex items-center justify-center text-3xl ${isWhite
-                                                ? 'bg-slate-600 hover:bg-slate-500 text-white'
-                                                : 'bg-slate-700 hover:bg-slate-600 text-slate-200'
+                                            ? 'bg-slate-600 hover:bg-slate-500 text-white'
+                                            : 'bg-slate-700 hover:bg-slate-600 text-slate-200'
                                             }`}
                                     >
                                         {symbols[piece]}

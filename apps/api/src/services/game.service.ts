@@ -63,16 +63,54 @@ export class GameService {
         const config = TIME_CONTROLS[tc] ?? TIME_CONTROLS.blitz;
 
         const key = this.gameKey(gameId.toString());
-        await redis.hset(key, {
+        const readyKey = this.readyKey(gameId.toString());
+
+        // Pipeline for better performance
+        const pipeline = redis.pipeline();
+        pipeline.hset(key, {
             fen,
-            status: 'active',
+            status: 'waiting',  // Not active until both players ready
             'clock:white': config.initialMs.toString(),
             'clock:black': config.initialMs.toString(),
             'clock:increment': config.incrementMs.toString(),
-            'clock:lastMoveAt': Date.now().toString(),
+            'clock:lastMoveAt': '0',  // Clock not started yet
             'clock:activeColor': 'white'
         });
-        await redis.expire(key, 60 * 60 * 6);
+        pipeline.expire(key, 60 * 60 * 6);
+        // Initialize ready tracking
+        pipeline.hset(readyKey, { white: 'false', black: 'false' });
+        pipeline.expire(readyKey, 60 * 5); // 5 min expiry for ready state
+        await pipeline.exec();
+    }
+
+    private readyKey(gameId: string) {
+        return `ready:${gameId}`;
+    }
+
+    async markPlayerReady(gameId: string, role: 'white' | 'black'): Promise<{ bothReady: boolean; startTime?: number }> {
+        const readyKey = this.readyKey(gameId);
+        await redis.hset(readyKey, { [role]: 'true' });
+
+        const [whiteReady, blackReady] = await redis.hmget(readyKey, 'white', 'black');
+        const bothReady = whiteReady === 'true' && blackReady === 'true';
+
+        if (bothReady) {
+            const now = Date.now();
+            const key = this.gameKey(gameId);
+            await redis.hset(key, {
+                status: 'active',
+                'clock:lastMoveAt': now.toString()
+            });
+            return { bothReady: true, startTime: now };
+        }
+
+        return { bothReady: false };
+    }
+
+    async isGameReady(gameId: string): Promise<boolean> {
+        const key = this.gameKey(gameId);
+        const status = await redis.hget(key, 'status');
+        return status === 'active';
     }
 
     private async loadGameObject(gameId: string): Promise<{
@@ -108,8 +146,11 @@ export class GameService {
 
     private async addMoveToHistory(gameId: string, move: StoredMove): Promise<void> {
         const key = this.moveHistoryKey(gameId);
-        await redis.rpush(key, JSON.stringify(move));
-        await redis.expire(key, 60 * 60 * 6);
+        // Pipeline for better performance
+        const pipeline = redis.pipeline();
+        pipeline.rpush(key, JSON.stringify(move));
+        pipeline.expire(key, 60 * 60 * 6);
+        await pipeline.exec();
     }
 
     async getMoveHistory(gameId: string): Promise<StoredMove[]> {
@@ -178,6 +219,7 @@ export class GameService {
                 gameOver: true,
                 result,
                 resultReason,
+                serverTime: now,
                 clocks: {
                     white: whiteMs,
                     black: blackMs,
@@ -212,26 +254,30 @@ export class GameService {
 
         const fen = game.getBoardFen();
 
-        // Store move with SAN in history
-        await this.addMoveToHistory(input.gameId, {
-            from: input.from,
-            to: input.to,
-            san,
-            promotion: input.promotion
-        });
-
         // Next side to move
         const nextColor: 'white' | 'black' =
             expectedColor === Color.WHITE ? 'black' : 'white';
 
-        await this.saveFen(input.gameId, fen);
-        await this.saveClocks(input.gameId, {
-            whiteMs,
-            blackMs,
-            incrementMs: clocks.incrementMs,
-            lastMoveAt: now,
-            activeColor: nextColor
+        // Pipeline Redis operations for better performance
+        const key = this.gameKey(input.gameId);
+        const moveHistoryKey = this.moveHistoryKey(input.gameId);
+        const pipeline = redis.pipeline();
+        pipeline.rpush(moveHistoryKey, JSON.stringify({
+            from: input.from,
+            to: input.to,
+            san,
+            promotion: input.promotion
+        }));
+        pipeline.expire(moveHistoryKey, 60 * 60 * 6);
+        pipeline.hset(key, { fen });
+        pipeline.hset(key, {
+            'clock:white': whiteMs.toString(),
+            'clock:black': blackMs.toString(),
+            'clock:increment': clocks.incrementMs.toString(),
+            'clock:lastMoveAt': now.toString(),
+            'clock:activeColor': nextColor
         });
+        await pipeline.exec();
 
         let result: GameResult | null = null;
         let resultReason: string | null = null;
@@ -270,6 +316,7 @@ export class GameService {
             gameOver: !!result,
             result,
             resultReason,
+            serverTime: now,
             clocks: {
                 white: whiteMs,
                 black: blackMs,
@@ -473,14 +520,23 @@ export class GameService {
                 status: gameRow.status,
                 result: gameRow.result,
                 resultReason: gameRow.resultReason,
-                isExpired: true // Flag to indicate game data has expired
+                isExpired: true, // Flag to indicate game data has expired
+                serverTime: Date.now()
             };
         }
 
         // For active games or completed games with live data
-        const fen = await this.getFen(gameId) || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+        const key = this.gameKey(gameId);
+        const [fen, redisStatus] = await Promise.all([
+            redis.hget(key, 'fen'),
+            redis.hget(key, 'status')
+        ]);
+        const currentFen = fen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
         const clocks = await this.getClockState(gameId);
         const moveHistory = await this.getMoveHistory(gameId);
+
+        // Use Redis status if available, otherwise DB status
+        const currentStatus = redisStatus || gameRow.status;
 
         // Fetch player profiles (with caching via profileService)
         const [whiteProfile, blackProfile] = await Promise.all([
@@ -498,7 +554,7 @@ export class GameService {
 
         return {
             gameId,
-            fen,
+            fen: currentFen,
             clocks,
             moveHistory,
             whitePlayerId: gameRow.whitePlayerId,
@@ -510,10 +566,11 @@ export class GameService {
             whiteAvatarUrl: whiteProfile.avatar_url,
             blackAvatarUrl: blackProfile.avatar_url,
             timeControl: gameRow.timeControl,
-            status: gameRow.status,
+            status: currentStatus,
             result: gameRow.result,
             resultReason: gameRow.resultReason,
-            isExpired: false
+            isExpired: false,
+            serverTime: Date.now()
         };
     }
 

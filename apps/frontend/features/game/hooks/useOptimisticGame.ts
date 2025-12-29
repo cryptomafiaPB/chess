@@ -42,7 +42,7 @@ export interface GameState {
     gameId: string;
     fen: string;
     role: GameRole;
-    status: 'active' | 'completed' | 'aborted';
+    status: 'waiting' | 'active' | 'completed' | 'aborted';
     result?: string | null;
     resultReason?: string | null;
     clocks: ClockState;
@@ -439,6 +439,22 @@ export function useOptimisticGame(gameId: string) {
             rollbackMove();
         };
 
+        // Handle game:begin event - game starts when both players are ready
+        const handleGameBegin = (payload: any) => {
+            if (payload.gameId !== gameId) return;
+            setState(prev => {
+                if (!prev) return prev;
+                return {
+                    ...prev,
+                    status: 'active',
+                    clocks: {
+                        ...prev.clocks,
+                        lastMoveAt: payload.startTime,
+                    },
+                };
+            });
+        };
+
         socket.emit('game:join', { gameId });
 
         socket.on('game:state', handleState);
@@ -447,6 +463,7 @@ export function useOptimisticGame(gameId: string) {
         socket.on('game:presence', handlePresence);
         socket.on('game:error', handleError);
         socket.on('game:invalid-move', handleInvalidMove);
+        socket.on('game:begin', handleGameBegin);
 
         return () => {
             socket.off('game:state', handleState);
@@ -455,6 +472,7 @@ export function useOptimisticGame(gameId: string) {
             socket.off('game:presence', handlePresence);
             socket.off('game:error', handleError);
             socket.off('game:invalid-move', handleInvalidMove);
+            socket.off('game:begin', handleGameBegin);
         };
     }, [gameId, syncChessState, buildMoveEntries, addMoveToHistory, rollbackMove]);
 

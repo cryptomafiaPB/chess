@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { getSocketClient } from '@/lib/socket-client';
+import { getSocketClient, getServerTime } from '@/lib/socket-client';
 
 export interface InactivityState {
     isActive: boolean;
@@ -28,7 +28,7 @@ export function useInactivityTimer(gameId: string, gameStatus: string) {
 
     const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-    // Local countdown for smooth animation
+    // Local countdown using server-synchronized time
     useEffect(() => {
         if (!state.isActive || !state.turnStartedAt || gameStatus !== 'active') {
             if (timerRef.current) {
@@ -42,12 +42,16 @@ export function useInactivityTimer(gameId: string, gameStatus: string) {
             setState(prev => {
                 if (!prev.turnStartedAt) return prev;
 
-                const elapsed = Date.now() - prev.turnStartedAt;
+                // Use server-synchronized time
+                const serverNow = getServerTime();
+                const elapsed = serverNow - prev.turnStartedAt;
                 const remainingMs = Math.max(0, INACTIVITY_TIMEOUT_MS - elapsed);
 
                 return {
                     ...prev,
-                    remainingMs
+                    remainingMs,
+                    isWarning: remainingMs <= 30000,
+                    warningSeconds: remainingMs <= 30000 ? Math.ceil(remainingMs / 1000) : null
                 };
             });
         }, 100); // Update every 100ms for smooth animation

@@ -20,7 +20,7 @@ export interface GameState {
     gameId: string;
     fen: string;
     role: GameRole;
-    status: 'active' | 'completed' | 'aborted';
+    status: 'waiting' | 'active' | 'completed' | 'aborted';
     result?: string | null;
     resultReason?: string | null;
     clocks: ClockState;

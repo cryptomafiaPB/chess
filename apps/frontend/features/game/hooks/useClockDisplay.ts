@@ -2,6 +2,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { getServerTime } from '@/lib/socket-client';
 import type { ClockState } from './useGameState';
 
 function formatMs(ms: number): string {
@@ -25,10 +26,13 @@ export function useClockDisplay(
         setDisplay(clocks ?? { white: 0, black: 0 });
     }, [clocks?.white, clocks?.black, clocks?.lastMoveAt, clocks?.activeColor]);
 
-    // Client-side ticking using lastMoveAt and activeColor to reduce drift
+    // Client-side ticking using server-synchronized time to reduce drift
     useEffect(() => {
+        // Don't tick if game isn't active or waiting to start
         if (status !== 'active') return;
-        if (!clocks || !clocks.activeColor || !clocks.lastMoveAt) return;
+        if (!clocks || !clocks.activeColor) return;
+        // If lastMoveAt is 0, clock hasn't started yet (waiting for both players)
+        if (!clocks.lastMoveAt || clocks.lastMoveAt === 0) return;
 
         let rafId: number;
         const baseWhite = clocks.white;
@@ -36,8 +40,9 @@ export function useClockDisplay(
         const { activeColor, lastMoveAt } = clocks;
 
         const tick = () => {
-            const now = Date.now();
-            const elapsed = Math.max(0, now - lastMoveAt);
+            // Use synchronized server time instead of local Date.now()
+            const serverNow = getServerTime();
+            const elapsed = Math.max(0, serverNow - lastMoveAt);
 
             const next: ClockState = {
                 white: activeColor === 'white' ? baseWhite - elapsed : baseWhite,

@@ -44,8 +44,7 @@ export function matchmakingHandler(io: Server, socket: Socket) {
             const match = await matchmakingService.findMatch(payload.timeControl);
             if (match) {
                 const { gameId, whitePlayerId, blackPlayerId } = match;
-
-                await gameService.createInitialState(Number(gameId));
+                // Note: createInitialState is already called in matchmakingService.findMatch()
 
                 // Put players into a game room
                 const room = `game:${gameId}`;

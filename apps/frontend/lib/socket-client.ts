@@ -6,19 +6,34 @@ import { getAccessToken } from './auth-token';
 
 let socket: Socket | null = null;
 
-const BASE_WS_URL = process.env.NEXT_PUBLIC_BACKEND_WS_URL || 'ws://localhost:5000'; // e.g. ws://localhost:5000
+// Use HTTP URL - Socket.IO will automatically upgrade to WebSocket (wss:// for https://)
+const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_HTTP_URL || 'http://localhost:5000';
 
-console.log('WebSocket URL:', BASE_WS_URL);
+console.log('Socket.IO URL:', BASE_URL);
+
+// Server time offset for clock synchronization
+let serverTimeOffset = 0;
+
+export function getServerTimeOffset(): number {
+    return serverTimeOffset;
+}
+
+export function setServerTimeOffset(offset: number): void {
+    serverTimeOffset = offset;
+}
+
+// Get synchronized "server time" from client perspective
+export function getServerTime(): number {
+    return Date.now() + serverTimeOffset;
+}
 
 export function getSocketClient(): Socket {
     if (!socket) {
-        // read token and include in initial handshake
-        const token = getAccessToken() ?? (typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null);
-
         const initialAuthToken = getAccessToken() ?? (typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null);
-        socket = io(BASE_WS_URL, {
+        socket = io(BASE_URL, {
             withCredentials: true,
-            transports: ['websocket'],
+            // Allow both polling and websocket - Socket.IO will upgrade automatically
+            transports: ['polling', 'websocket'],
             auth: initialAuthToken ? { token: `Bearer ${initialAuthToken}` } : undefined,
             reconnection: true,
             reconnectionDelay: 1000,
@@ -47,6 +62,18 @@ export function getSocketClient(): Socket {
 
         socket.on('connect_error', (error) => {
             console.error('❌ WebSocket connection error:', error);
+        });
+
+        // Sync server time on any event that includes serverTime
+        socket.onAny((event, payload) => {
+            if (payload && typeof payload === 'object' && 'serverTime' in payload) {
+                const clientNow = Date.now();
+                const newOffset = payload.serverTime - clientNow;
+                // Use exponential moving average to smooth out network jitter
+                serverTimeOffset = serverTimeOffset === 0
+                    ? newOffset
+                    : serverTimeOffset * 0.8 + newOffset * 0.2;
+            }
         });
     }
     return socket;

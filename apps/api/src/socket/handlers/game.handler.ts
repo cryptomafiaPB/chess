@@ -53,6 +53,21 @@ export function gameHandler(io: Server, socket: Socket) {
                     role,
                     status: 'online'
                 });
+
+                // Mark player as ready and check if both are ready
+                const readyResult = await gameService.markPlayerReady(payload.gameId, role);
+
+                if (readyResult.bothReady && readyResult.startTime) {
+                    // Both players ready - game begins now!
+                    io.to(room).emit('game:begin', {
+                        gameId: payload.gameId,
+                        startTime: readyResult.startTime,
+                        serverTime: Date.now()
+                    });
+
+                    // Start inactivity timer now that game has begun
+                    await inactivityService.startInactivityTimer(payload.gameId, 'white', io);
+                }
             }
 
             // Send inactivity state if game is active
@@ -62,18 +77,16 @@ export function gameHandler(io: Server, socket: Socket) {
                     socket.emit('game:inactivity-sync', {
                         gameId: payload.gameId,
                         activeColor: inactivityState.activeColor,
-                        remainingMs: inactivityState.remainingMs
+                        remainingMs: inactivityState.remainingMs,
+                        serverTime: Date.now()
                     });
-                } else {
-                    // Start inactivity timer if not already running
-                    const activeColor = fullState.clocks.activeColor ?? 'white';
-                    await inactivityService.startInactivityTimer(payload.gameId, activeColor, io);
                 }
             }
 
             socket.emit('game:state', {
                 ...fullState,
-                role
+                role,
+                serverTime: Date.now()
             });
         } catch (err) {
             const message = err instanceof Error ? err.message : 'Failed to join game';
@@ -102,10 +115,11 @@ export function gameHandler(io: Server, socket: Socket) {
                 gameId: payload.gameId,
                 move: res.move,
                 fen: res.fen,
-                clocks: res.clocks, // { white, black }
+                clocks: res.clocks,
                 gameOver: res.gameOver,
                 result: res.result,
-                resultReason: res.resultReason
+                resultReason: res.resultReason,
+                serverTime: res.serverTime ?? Date.now()
             });
 
             // Start new inactivity timer for the next player if game is not over

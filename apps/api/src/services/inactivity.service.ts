@@ -51,7 +51,8 @@ class InactivityService {
             activeColor,
             turnStartedAt: now,
             timeoutAt: now + INACTIVITY_TIMEOUT_MS,
-            warningAt: now + (INACTIVITY_TIMEOUT_MS - WARNING_THRESHOLD_MS)
+            warningAt: now + (INACTIVITY_TIMEOUT_MS - WARNING_THRESHOLD_MS),
+            serverTime: now
         });
 
         // Set warning timer (fires at 30 seconds remaining)
@@ -78,7 +79,8 @@ class InactivityService {
         io.to(`game:${gameId}`).emit('game:inactivity-warning', {
             gameId,
             activeColor,
-            remainingSeconds
+            remainingSeconds,
+            serverTime: Date.now()
         });
 
         // Start countdown interval
@@ -89,7 +91,8 @@ class InactivityService {
                 io.to(`game:${gameId}`).emit('game:inactivity-warning', {
                     gameId,
                     activeColor,
-                    remainingSeconds
+                    remainingSeconds,
+                    serverTime: Date.now()
                 });
             } else {
                 clearInterval(interval);
@@ -143,7 +146,8 @@ class InactivityService {
             io.to(`game:${gameId}`).emit('game:ended', {
                 gameId,
                 result,
-                resultReason: 'inactivity'
+                resultReason: 'inactivity',
+                serverTime: Date.now()
             });
 
             // Clear inactivity state from Redis
@@ -161,7 +165,10 @@ class InactivityService {
         this.clearTimers(gameId);
 
         // Notify clients that inactivity timer was cancelled
-        io.to(`game:${gameId}`).emit('game:inactivity-cancelled', { gameId });
+        io.to(`game:${gameId}`).emit('game:inactivity-cancelled', {
+            gameId,
+            serverTime: Date.now()
+        });
 
         // Clear Redis state
         await redis.del(this.inactivityKey(gameId));
