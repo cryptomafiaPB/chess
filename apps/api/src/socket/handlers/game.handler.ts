@@ -59,6 +59,7 @@ export function gameHandler(io: Server, socket: Socket) {
 
                 if (readyResult.bothReady && readyResult.startTime) {
                     // Both players ready - game begins now!
+                    // Emit to ALL sockets in the room (including this one)
                     io.to(room).emit('game:begin', {
                         gameId: payload.gameId,
                         startTime: readyResult.startTime,
@@ -67,10 +68,15 @@ export function gameHandler(io: Server, socket: Socket) {
 
                     // Start inactivity timer now that game has begun
                     await inactivityService.startInactivityTimer(payload.gameId, 'white', io);
+
+                    // Update fullState to reflect active status for the state emit below
+                    fullState.status = 'active';
+                    fullState.clocks.lastMoveAt = readyResult.startTime;
                 }
             }
 
-            // Send inactivity state if game is active
+            // If game is already active (e.g., reconnection or second player joined after first)
+            // send the current inactivity state
             if (fullState.status === 'active' && !fullState.isExpired) {
                 const inactivityState = await inactivityService.getRemainingTime(payload.gameId);
                 if (inactivityState) {

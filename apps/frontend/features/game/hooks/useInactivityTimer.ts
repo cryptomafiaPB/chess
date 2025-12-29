@@ -90,17 +90,19 @@ export function useInactivityTimer(gameId: string, gameStatus: string) {
             gameId: string;
             activeColor: 'white' | 'black';
             remainingMs: number;
+            serverTime?: number;
         }) => {
             if (payload.gameId !== gameId) return;
 
-            const now = Date.now();
-            const turnStartedAt = now - (INACTIVITY_TIMEOUT_MS - payload.remainingMs);
+            // Use server time if provided, otherwise estimate
+            const serverNow = payload.serverTime ?? getServerTime();
+            const turnStartedAt = serverNow - (INACTIVITY_TIMEOUT_MS - payload.remainingMs);
 
             setState({
                 isActive: true,
                 activeColor: payload.activeColor,
                 turnStartedAt,
-                timeoutAt: now + payload.remainingMs,
+                timeoutAt: serverNow + payload.remainingMs,
                 remainingMs: payload.remainingMs,
                 warningSeconds: payload.remainingMs <= 30000 ? Math.ceil(payload.remainingMs / 1000) : null,
                 isWarning: payload.remainingMs <= 30000

@@ -53,8 +53,8 @@ export default function GamePage() {
     const voice = useVoice(gameId);
     const draw = useDraw(gameId);
 
-    // Inactivity timer tracking
-    const inactivity = useInactivityTimer(gameId, state?.status ?? 'active');
+    // Inactivity timer tracking - only run when game is actually active
+    const inactivity = useInactivityTimer(gameId, state?.status ?? 'waiting');
 
     const loading = stateLoading || detailsLoading;
 

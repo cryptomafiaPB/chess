@@ -118,14 +118,32 @@ export function useGameState(gameId: string) {
             setError(payload.message ?? 'Game error');
         };
 
-        socket.emit('game:join', { gameId });
+        const handleGameBegin = (payload: any) => {
+            if (payload.gameId !== gameId) return;
+            setState((prev) => {
+                if (!prev) return prev;
+                return {
+                    ...prev,
+                    status: 'active',
+                    clocks: {
+                        ...prev.clocks,
+                        lastMoveAt: payload.startTime,
+                    },
+                };
+            });
+        };
 
+        // IMPORTANT: Set up listeners BEFORE emitting game:join to avoid race conditions
         socket.on('game:state', handleState);
         socket.on('game:move', handleMove);
         socket.on('game:ended', handleEnded);
         socket.on('game:presence', handlePresence);
         socket.on('game:error', handleError);
         socket.on('game:invalid-move', handleError);
+        socket.on('game:begin', handleGameBegin);
+
+        // Now emit join after listeners are ready
+        socket.emit('game:join', { gameId });
 
         return () => {
             socket.off('game:state', handleState);
@@ -134,6 +152,7 @@ export function useGameState(gameId: string) {
             socket.off('game:presence', handlePresence);
             socket.off('game:error', handleError);
             socket.off('game:invalid-move', handleError);
+            socket.off('game:begin', handleGameBegin);
         };
     }, [gameId]);
 

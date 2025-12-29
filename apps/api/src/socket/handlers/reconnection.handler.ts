@@ -52,7 +52,8 @@ export async function reconnectionHandler(io: Server, socket: Socket) {
                 const fullState = await gameService.getFullState(gameId);
                 socket.emit('game:state', {
                     ...fullState,
-                    role
+                    role,
+                    serverTime: Date.now()
                 });
             } catch (err) {
                 console.error(`Failed to fetch game state for ${gameId}:`, err);

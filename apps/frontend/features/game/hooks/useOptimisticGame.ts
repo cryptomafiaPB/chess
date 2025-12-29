@@ -455,8 +455,7 @@ export function useOptimisticGame(gameId: string) {
             });
         };
 
-        socket.emit('game:join', { gameId });
-
+        // IMPORTANT: Set up listeners BEFORE emitting game:join to avoid race conditions
         socket.on('game:state', handleState);
         socket.on('game:move', handleMove);
         socket.on('game:ended', handleEnded);
@@ -464,6 +463,9 @@ export function useOptimisticGame(gameId: string) {
         socket.on('game:error', handleError);
         socket.on('game:invalid-move', handleInvalidMove);
         socket.on('game:begin', handleGameBegin);
+
+        // Now emit join after listeners are ready
+        socket.emit('game:join', { gameId });
 
         return () => {
             socket.off('game:state', handleState);
