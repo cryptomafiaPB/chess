@@ -40,6 +40,17 @@ export function gameHandler(io: Server, socket: Socket) {
             if (userId === whitePlayerId.toString()) role = 'white';
             else if (userId === blackPlayerId.toString()) role = 'black';
 
+            // Block ALL users (including players) from joining completed/aborted games
+            // Game pages are only valid for active/waiting games
+            // Players who were on the page when game ended can still see it until they leave
+            if (fullState.status === 'completed' || fullState.status === 'aborted') {
+                socket.emit('game:error', {
+                    message: 'Game not found',
+                    type: 'not_found'
+                });
+                return;
+            }
+
             const room = `game:${payload.gameId}`;
             socket.join(room);
             (socket.data.games as Set<string>).add(payload.gameId);

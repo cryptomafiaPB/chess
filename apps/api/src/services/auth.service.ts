@@ -6,7 +6,7 @@ import { generateTokenPair, type TokenPayload, verifyRefreshToken } from '../uti
 import type { RegisterInput, LoginInput } from '../utils/validation';
 import { redis } from 'db/redis';
 import { users } from 'schema/user.schema';
-import { profiles } from 'schema/profile.shema';
+import { profiles, DEFAULT_PREFERENCES } from 'schema/profile.shema';
 import { ratings } from 'schema/ratings.schema';
 
 export class AuthService {
@@ -40,10 +40,7 @@ export class AuthService {
         // Create profile
         await db.insert(profiles).values({
             userId: user!.id,
-            preferences: {
-                voiceEnabled: true,
-                soundEnabled: true
-            }
+            preferences: DEFAULT_PREFERENCES
         });
 
         // Create default ratings for all time controls

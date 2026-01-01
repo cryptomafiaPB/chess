@@ -1,11 +1,12 @@
 // backend/src/services/game.service.ts
 import { db } from '../config/database';
-import { eq } from 'drizzle-orm';
+import { eq, or, desc } from 'drizzle-orm';
 import { Game as ChessGame } from '../chess/game';
 import { Player } from '../chess/player';
 import { Move } from '../chess/move';
 import { Color } from 'types/chess';
 import { games } from 'schema/game.schema';
+import { users } from 'schema/user.schema';
 import { redis } from 'db/redis';
 import { TIME_CONTROLS, type TimeControl } from '../utils/timeControl';
 import { ratingService } from './rating.service';
@@ -483,11 +484,9 @@ export class GameService {
     async getFullState(gameId: string) {
         const gameRow = await this.getGameRow(gameId);
 
-        // Check if game has live data in Redis
-        const hasLiveData = await this.hasLiveGameData(gameId);
-
-        // For completed games without live data, return limited info
-        if (!hasLiveData && gameRow.status === 'completed') {
+        // DATABASE is the source of truth for game completion status
+        // If DB says game is completed/aborted, it's completed regardless of Redis data
+        if (gameRow.status === 'completed' || gameRow.status === 'aborted') {
             // Fetch player profiles
             const [whiteProfile, blackProfile] = await Promise.all([
                 profileService.getProfile(gameRow.whitePlayerId.toString()),
@@ -506,8 +505,8 @@ export class GameService {
                 fen: gameRow.initialFen === 'startpos'
                     ? 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
                     : gameRow.initialFen,
-                clocks: { white: 0, black: 0, increment: 0, lastMoveAt: 0, activeColor: 'white' as const },
-                moveHistory: [], // Move history expired
+                clocks: { white: 0, black: 0, increment: 0, lastMoveAt: 0, activeColor: undefined },
+                moveHistory: [],
                 whitePlayerId: gameRow.whitePlayerId,
                 blackPlayerId: gameRow.blackPlayerId,
                 whiteUsername: whiteProfile.username,
@@ -520,12 +519,12 @@ export class GameService {
                 status: gameRow.status,
                 result: gameRow.result,
                 resultReason: gameRow.resultReason,
-                isExpired: true, // Flag to indicate game data has expired
+                isExpired: true,
                 serverTime: Date.now()
             };
         }
 
-        // For active games or completed games with live data
+        // For active/waiting games, use Redis data
         const key = this.gameKey(gameId);
         const [fen, redisStatus] = await Promise.all([
             redis.hget(key, 'fen'),
@@ -610,6 +609,109 @@ export class GameService {
                 avatarUrl: blackProfile.avatar_url,
                 country: blackProfile.country
             }
+        };
+    }
+
+    /**
+     * Get user's game history with pagination
+     */
+    async getUserGameHistory(userId: string, limit: number = 20, offset: number = 0) {
+        // Get games where user was either white or black player
+        const userGames = await db
+            .select({
+                id: games.id,
+                whitePlayerId: games.whitePlayerId,
+                blackPlayerId: games.blackPlayerId,
+                mode: games.mode,
+                timeControl: games.timeControl,
+                result: games.result,
+                resultReason: games.resultReason,
+                status: games.status,
+                startedAt: games.startedAt,
+                endedAt: games.endedAt,
+            })
+            .from(games)
+            .where(
+                or(
+                    eq(games.whitePlayerId, Number(userId)),
+                    eq(games.blackPlayerId, Number(userId))
+                )
+            )
+            .orderBy(desc(games.startedAt))
+            .limit(limit)
+            .offset(offset);
+
+        // Get unique opponent IDs
+        const opponentIds = new Set<number>();
+        userGames.forEach(game => {
+            const opponentId = game.whitePlayerId === Number(userId)
+                ? game.blackPlayerId
+                : game.whitePlayerId;
+            opponentIds.add(opponentId);
+        });
+
+        // Fetch opponent profiles
+        const opponentProfiles: Record<number, any> = {};
+        await Promise.all(
+            Array.from(opponentIds).map(async (id) => {
+                try {
+                    const profile = await profileService.getProfile(id.toString());
+                    opponentProfiles[id] = profile;
+                } catch {
+                    opponentProfiles[id] = { username: 'Unknown', avatar_url: null };
+                }
+            })
+        );
+
+        // Format response
+        const formattedGames = userGames.map(game => {
+            const playedAsWhite = game.whitePlayerId === Number(userId);
+            const opponentId = playedAsWhite ? game.blackPlayerId : game.whitePlayerId;
+            const opponent = opponentProfiles[opponentId] || { username: 'Unknown', avatar_url: null };
+
+            // Determine user's result
+            let userResult: 'win' | 'loss' | 'draw' | null = null;
+            if (game.result === 'white_wins') {
+                userResult = playedAsWhite ? 'win' : 'loss';
+            } else if (game.result === 'black_wins') {
+                userResult = playedAsWhite ? 'loss' : 'win';
+            } else if (game.result === 'draw') {
+                userResult = 'draw';
+            }
+
+            return {
+                id: game.id,
+                playedAs: playedAsWhite ? 'white' : 'black',
+                opponent: {
+                    id: opponentId,
+                    username: opponent.username,
+                    avatarUrl: opponent.avatar_url,
+                },
+                timeControl: game.timeControl,
+                result: userResult,
+                resultReason: game.resultReason,
+                status: game.status,
+                startedAt: game.startedAt,
+                endedAt: game.endedAt,
+            };
+        });
+
+        // Get total count for pagination
+        const totalGames = await db
+            .select({ count: games.id })
+            .from(games)
+            .where(
+                or(
+                    eq(games.whitePlayerId, Number(userId)),
+                    eq(games.blackPlayerId, Number(userId))
+                )
+            );
+
+        return {
+            games: formattedGames,
+            total: totalGames.length > 0 ? totalGames.length : 0,
+            limit,
+            offset,
         };
     }
 }

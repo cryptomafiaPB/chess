@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { getSocketClient } from '@/lib/socket-client';
+import { getSocketClient, waitForConnection, isSocketConnected } from '@/lib/socket-client';
 
 export type TimeControl = 'bullet' | 'blitz' | 'rapid' | 'classical';
 
@@ -11,6 +11,7 @@ export function useMatchmaking() {
     const [isQueueing, setIsQueueing] = useState(false);
     const [timeControl, setTimeControl] = useState<TimeControl>('blitz');
     const [error, setError] = useState<string | null>(null);
+    const [isConnecting, setIsConnecting] = useState(false);
 
     useEffect(() => {
         const socket = getSocketClient();
@@ -40,11 +41,25 @@ export function useMatchmaking() {
     }, [router]);
 
     const joinQueue = useCallback(
-        (tc: TimeControl) => {
-            const socket = getSocketClient();
+        async (tc: TimeControl) => {
             setError(null);
-            setIsQueueing(true);
             setTimeControl(tc);
+
+            // Ensure socket is connected before emitting
+            if (!isSocketConnected()) {
+                setIsConnecting(true);
+                try {
+                    await waitForConnection(5000);
+                } catch (err) {
+                    setError('Unable to connect to server. Please try again.');
+                    setIsConnecting(false);
+                    return;
+                }
+                setIsConnecting(false);
+            }
+
+            const socket = getSocketClient();
+            setIsQueueing(true);
             socket.emit('queue:join', { timeControl: tc });
         },
         []
@@ -53,11 +68,14 @@ export function useMatchmaking() {
     const leaveQueue = useCallback(() => {
         const socket = getSocketClient();
         setIsQueueing(false);
-        socket.emit('queue:leave', { timeControl });
+        if (isSocketConnected()) {
+            socket.emit('queue:leave', { timeControl });
+        }
     }, [timeControl]);
 
     return {
         isQueueing,
+        isConnecting,
         timeControl,
         error,
         joinQueue,

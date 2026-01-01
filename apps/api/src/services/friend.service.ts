@@ -429,6 +429,19 @@ export class FriendService {
 
         return 'none';
     }
+
+    // Check if two users are friends
+    async areFriends(userId1: number, userId2: number): Promise<boolean> {
+        const friendship = await db.query.friendships.findFirst({
+            where: and(
+                eq(friendships.userId, userId1),
+                eq(friendships.friendId, userId2),
+                eq(friendships.status, 'active')
+            )
+        });
+
+        return !!friendship;
+    }
 }
 
 export const friendService = new FriendService();

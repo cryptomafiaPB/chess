@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
+import { cn } from '@/lib/utils';
+import { ChevronLeft, ChevronRight, Clock } from 'lucide-react';
 
 interface MoveEntry {
     moveNumber: number;
@@ -53,27 +55,28 @@ export function MoveHistoryBar({ moves, currentMoveIndex, onNavigate }: Props) {
 
     if (moves.length === 0) {
         return (
-            <div className="flex items-center h-10 px-3 bg-slate-800/80 rounded-lg text-slate-400 text-sm">
-                No moves yet
+            <div className="flex items-center gap-2 h-10 px-3 bg-card/80 border border-border/50 rounded-xl text-muted-foreground text-sm backdrop-blur-sm">
+                <Clock className="w-4 h-4" />
+                <span>Waiting for first move...</span>
             </div>
         );
     }
 
     return (
-        <div className="flex items-center gap-1 bg-slate-800/80 rounded-lg overflow-hidden">
+        <div className="flex items-center gap-1 bg-card/80 border border-border/50 rounded-xl overflow-hidden backdrop-blur-sm">
             {/* Left scroll button */}
             <button
                 onClick={() => scroll('left')}
                 disabled={!canScrollLeft}
-                className={`
-                    shrink-0 p-2 transition-colors
-                    ${canScrollLeft ? 'text-slate-300 hover:text-white hover:bg-slate-700' : 'text-slate-600 cursor-default'}
-                `}
+                className={cn(
+                    'shrink-0 p-2 transition-all rounded-lg',
+                    canScrollLeft
+                        ? 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                        : 'text-muted-foreground/30 cursor-default'
+                )}
                 aria-label="Scroll left"
             >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                </svg>
+                <ChevronLeft className="w-4 h-4" />
             </button>
 
             {/* Scrollable moves container */}
@@ -85,19 +88,19 @@ export function MoveHistoryBar({ moves, currentMoveIndex, onNavigate }: Props) {
                 {moves.map((move, idx) => (
                     <div key={move.moveNumber} className="flex items-center gap-1 shrink-0">
                         {/* Move number */}
-                        <span className="text-[11px] text-slate-500 font-medium min-w-5">
+                        <span className="text-[11px] text-muted-foreground font-medium min-w-5">
                             {move.moveNumber}.
                         </span>
                         {/* White's move */}
                         {move.white && (
                             <button
                                 onClick={() => onNavigate?.(idx * 2)}
-                                className={`
-                                    px-2 py-1 rounded text-xs font-medium transition-colors
-                                    ${currentMoveIndex === idx * 2
-                                        ? 'bg-sky-500/30 text-sky-300'
-                                        : 'bg-slate-700/50 text-slate-300 hover:bg-slate-600/50'}
-                                `}
+                                className={cn(
+                                    'px-2 py-1 rounded-lg text-xs font-medium transition-all',
+                                    currentMoveIndex === idx * 2
+                                        ? 'bg-primary/20 text-primary font-semibold'
+                                        : 'bg-muted/50 text-foreground hover:bg-muted'
+                                )}
                             >
                                 {move.white.san}
                             </button>
@@ -106,12 +109,12 @@ export function MoveHistoryBar({ moves, currentMoveIndex, onNavigate }: Props) {
                         {move.black && (
                             <button
                                 onClick={() => onNavigate?.(idx * 2 + 1)}
-                                className={`
-                                    px-2 py-1 rounded text-xs font-medium transition-colors
-                                    ${currentMoveIndex === idx * 2 + 1
-                                        ? 'bg-sky-500/30 text-sky-300'
-                                        : 'bg-slate-700/50 text-slate-300 hover:bg-slate-600/50'}
-                                `}
+                                className={cn(
+                                    'px-2 py-1 rounded-lg text-xs font-medium transition-all',
+                                    currentMoveIndex === idx * 2 + 1
+                                        ? 'bg-primary/20 text-primary font-semibold'
+                                        : 'bg-muted/50 text-foreground hover:bg-muted'
+                                )}
                             >
                                 {move.black.san}
                             </button>
@@ -124,15 +127,15 @@ export function MoveHistoryBar({ moves, currentMoveIndex, onNavigate }: Props) {
             <button
                 onClick={() => scroll('right')}
                 disabled={!canScrollRight}
-                className={`
-                    shrink-0 p-2 transition-colors
-                    ${canScrollRight ? 'text-slate-300 hover:text-white hover:bg-slate-700' : 'text-slate-600 cursor-default'}
-                `}
+                className={cn(
+                    'shrink-0 p-2 transition-all rounded-lg',
+                    canScrollRight
+                        ? 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                        : 'text-muted-foreground/30 cursor-default'
+                )}
                 aria-label="Scroll right"
             >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                </svg>
+                <ChevronRight className="w-4 h-4" />
             </button>
         </div>
     );

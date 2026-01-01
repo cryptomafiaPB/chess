@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { getSocketClient } from '@/lib/socket-client';
+import { getSocketClient, getServerTime } from '@/lib/socket-client';
 import { Chess, Move as ChessMove } from 'chess.js';
 
 export type GameRole = 'white' | 'black' | 'spectator';
@@ -168,12 +168,28 @@ export function useOptimisticGame(gameId: string) {
             const currentTurn = prev.clocks.activeColor ?? 'white';
             const nextTurn: 'white' | 'black' = currentTurn === 'white' ? 'black' : 'white';
 
+            // Use server-synchronized time for immediate clock switch
+            const now = getServerTime();
+            const elapsed = prev.clocks.lastMoveAt ? Math.max(0, now - prev.clocks.lastMoveAt) : 0;
+            const increment = prev.clocks.increment ?? 0;
+
+            // Calculate new clock values
+            const newWhite = currentTurn === 'white'
+                ? Math.max(0, prev.clocks.white - elapsed + increment)
+                : prev.clocks.white;
+            const newBlack = currentTurn === 'black'
+                ? Math.max(0, prev.clocks.black - elapsed + increment)
+                : prev.clocks.black;
+
             return {
                 ...prev,
                 fen: newFen,
                 lastMove: move,
                 clocks: {
-                    ...prev.clocks,
+                    white: newWhite,
+                    black: newBlack,
+                    increment: prev.clocks.increment,
+                    lastMoveAt: now, // Critical: update lastMoveAt for clock to switch immediately
                     activeColor: nextTurn,
                 },
             };
@@ -342,7 +358,8 @@ export function useOptimisticGame(gameId: string) {
                                 black: payload.clocks?.black ?? prev.clocks.black,
                                 increment: payload.clocks?.increment ?? prev.clocks.increment,
                                 lastMoveAt: payload.clocks?.lastMoveAt ?? prev.clocks.lastMoveAt,
-                                activeColor: payload.clocks?.activeColor ?? prev.clocks.activeColor,
+                                // Clear activeColor when game is over to stop clock
+                                activeColor: payload.gameOver ? undefined : (payload.clocks?.activeColor ?? prev.clocks.activeColor),
                             },
                         };
                     });
@@ -383,7 +400,8 @@ export function useOptimisticGame(gameId: string) {
                         black: payload.clocks?.black ?? prev.clocks.black,
                         increment: payload.clocks?.increment ?? prev.clocks.increment,
                         lastMoveAt: payload.clocks?.lastMoveAt ?? prev.clocks.lastMoveAt,
-                        activeColor: payload.clocks?.activeColor ?? prev.clocks.activeColor,
+                        // Clear activeColor when game is over to stop clock
+                        activeColor: payload.gameOver ? undefined : (payload.clocks?.activeColor ?? prev.clocks.activeColor),
                     },
                 };
             });
@@ -400,6 +418,11 @@ export function useOptimisticGame(gameId: string) {
                     status: 'completed',
                     result: payload.result,
                     resultReason: payload.resultReason,
+                    // Clear activeColor to stop clock ticking
+                    clocks: {
+                        ...prev.clocks,
+                        activeColor: undefined,
+                    },
                 };
             });
             pendingMoveRef.current = null;

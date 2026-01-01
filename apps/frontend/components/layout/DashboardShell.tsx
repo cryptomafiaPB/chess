@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { useRouter, usePathname } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
+import { setAccessToken } from '@/lib/auth-token';
+import { disconnectSocket } from '@/lib/socket-client';
 import { cn } from '@/lib/utils';
 
 type DashboardShellProps = {
@@ -28,7 +30,13 @@ export function DashboardShell({ user, children }: DashboardShellProps) {
     const logoutMutation = useMutation({
         mutationFn: () => apiClient.post('/api/v1/auth/logout'),
         onSuccess: () => {
+            // Clear auth token
+            setAccessToken(null);
+            // Disconnect socket
+            disconnectSocket();
+            // Clear queries
             queryClient.removeQueries({ queryKey: ['auth', 'me'] });
+            queryClient.clear();
             router.replace('/login');
         },
     });

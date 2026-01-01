@@ -2,7 +2,7 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { profileApi } from '../api';
+import { profileApi, UserPreferences } from '../api';
 
 export function useProfile(userId: string) {
     return useQuery({
@@ -29,6 +29,54 @@ export function useUpdateProfile() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['profile'] });
             queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
+        },
+    });
+}
+
+export function useChangePassword() {
+    return useMutation({
+        mutationFn: profileApi.changePassword,
+    });
+}
+
+export function useUpdateAvatar() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: profileApi.updateAvatar,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['profile'] });
+            queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
+        },
+    });
+}
+
+export function usePreferences() {
+    return useQuery({
+        queryKey: ['profile', 'preferences'],
+        queryFn: () => profileApi.getPreferences(),
+        staleTime: 60000, // 1 minute
+    });
+}
+
+export function useUpdatePreferences() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (preferences: Partial<UserPreferences>) => profileApi.updatePreferences(preferences),
+        onSuccess: (data) => {
+            queryClient.setQueryData(['profile', 'preferences'], data);
+        },
+    });
+}
+
+export function useDeleteAccount() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: profileApi.deleteAccount,
+        onSuccess: () => {
+            queryClient.clear();
         },
     });
 }

@@ -14,8 +14,15 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Multiplayer Chess",
-  description: "Real-time multiplayer chess platform || chess.com am coming for you",
+  title: "ChessMaster - Play Chess Online",
+  description: "Real-time multiplayer chess platform with ranked games, tournaments, and a global community.",
+  keywords: ["chess", "online chess", "multiplayer chess", "chess game", "play chess"],
+  authors: [{ name: "ChessMaster Team" }],
+  openGraph: {
+    title: "ChessMaster - Play Chess Online",
+    description: "Real-time multiplayer chess platform with ranked games, tournaments, and a global community.",
+    type: "website",
+  },
 };
 
 export default function RootLayout({
@@ -24,10 +31,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} min-h-screen bg-background text-foreground antialiased `}
+        className={`${geistSans.variable} ${geistMono.variable} min-h-screen bg-background font-sans text-foreground antialiased`}
       >
+        {/* Skip to main content for accessibility */}
+        <a href="#main-content" className="skip-to-main">
+          Skip to main content
+        </a>
         <Providers>
           {children}
         </Providers>

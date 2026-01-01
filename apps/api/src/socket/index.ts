@@ -11,6 +11,8 @@ import { socketAuthHandler } from './handlers/socket-auth.handler';
 import { chatHandler } from './handlers/chat.handler';
 import { reconnectionHandler } from './handlers/reconnection.handler';
 import { rematchHandler } from './handlers/rematch.handler';
+import { challengeHandler } from './handlers/challenge.handler';
+import { dmHandler } from './handlers/dm.handler';
 
 export const initializeSocket = (io: Server) => {
     io.on('connection', async (socket) => {
@@ -30,11 +32,21 @@ export const initializeSocket = (io: Server) => {
 
         console.log(`✅ Client connected: ${socket.id} (user:${socket.data.userId})`);
 
+        // Handle time synchronization requests for accurate clock display
+        socket.on('time:sync', (payload: { clientTime: number }) => {
+            socket.emit('time:sync', {
+                serverTime: Date.now(),
+                clientTime: payload.clientTime
+            });
+        });
+
         gameHandler(io, socket);
         chatHandler(io, socket);
         voiceHandler(io, socket);
         matchmakingHandler(io, socket);
         rematchHandler(io, socket);
+        challengeHandler(io, socket);
+        dmHandler(io, socket);
 
         // Handle reconnection - restore game sessions
         await reconnectionHandler(io, socket);

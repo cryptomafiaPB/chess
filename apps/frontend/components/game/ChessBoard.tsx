@@ -1,9 +1,11 @@
 // src/components/game/ChessBoard.tsx
 'use client';
 
-import { useMemo, useState, useCallback, useRef, type ReactElement } from 'react';
+import { useMemo, useState, useCallback, useRef, useEffect, type ReactElement } from 'react';
 import type { Board, Piece, Position } from '@/types/chess';
 import { fenToBoard, indexToSquare } from '@/utils/chessHelpers';
+
+export type BoardEventType = 'check' | 'checkmate' | 'stalemate' | 'draw' | 'timeout' | 'resign' | null;
 
 type Props = {
   fen: string;
@@ -16,6 +18,8 @@ type Props = {
   onMove: (from: string, to: string, promotion?: string) => void;
   onSelectSquare?: (square: string) => void;
   onSquareClick?: (square: string, piece: Piece | null) => void;
+  gameEvent?: BoardEventType;
+  winner?: 'white' | 'black' | null;
 };
 
 // Chess piece SVG components - clean and scale perfectly
@@ -85,6 +89,16 @@ const PieceSVG: React.FC<{ piece: Piece }> = ({ piece }) => {
   );
 };
 
+// Subtle event badge config
+const eventBadgeConfig: Record<string, { text: string; colorClass: string; icon: string }> = {
+  check: { text: 'Check', colorClass: 'bg-amber-500/90 text-white', icon: '⚠' },
+  checkmate: { text: 'Checkmate', colorClass: 'bg-emerald-500/90 text-white', icon: '👑' },
+  stalemate: { text: 'Stalemate', colorClass: 'bg-slate-500/90 text-white', icon: '=' },
+  draw: { text: 'Draw', colorClass: 'bg-slate-500/90 text-white', icon: '½' },
+  timeout: { text: 'Timeout', colorClass: 'bg-red-500/90 text-white', icon: '⏱' },
+  resign: { text: 'Resigned', colorClass: 'bg-slate-600/90 text-white', icon: '🏳' },
+};
+
 export function ChessBoard({
   fen,
   canMove,
@@ -96,12 +110,36 @@ export function ChessBoard({
   onMove,
   onSelectSquare,
   onSquareClick,
-}: Props) {
+  isCheck = false,
+  checkSquare,
+  gameEvent,
+  winner,
+}: Props & { isCheck?: boolean; checkSquare?: string }) {
   const boardRef = useRef<HTMLDivElement>(null);
   const [draggingFrom, setDraggingFrom] = useState<string | null>(null);
   const [dragPosition, setDragPosition] = useState<{ x: number; y: number } | null>(null);
   const [draggedPiece, setDraggedPiece] = useState<Piece | null>(null);
   const [hoverSquare, setHoverSquare] = useState<string | null>(null);
+  const [showBadge, setShowBadge] = useState(false);
+  const [currentEvent, setCurrentEvent] = useState<BoardEventType>(null);
+
+  // Show badge briefly when game event changes
+  useEffect(() => {
+    if (gameEvent) {
+      setCurrentEvent(gameEvent);
+      setShowBadge(true);
+      const timer = setTimeout(() => {
+        // Keep badge visible for game-ending events, hide for check
+        if (gameEvent === 'check') {
+          setShowBadge(false);
+        }
+      }, 1500);
+      return () => clearTimeout(timer);
+    } else {
+      setShowBadge(false);
+      setCurrentEvent(null);
+    }
+  }, [gameEvent]);
 
   const board: Board = useMemo(() => fenToBoard(fen), [fen]);
 
@@ -215,6 +253,7 @@ export function ChessBoard({
               const isHint = highlightedSquares.includes(square);
               const isDragOrigin = draggingFrom === square;
               const isHovered = hoverSquare === square && draggingFrom && isHint;
+              const isCheckSquare = isCheck && checkSquare === square;
 
               return (
                 <div
@@ -223,10 +262,17 @@ export function ChessBoard({
                                         relative flex items-center justify-center
                                         ${isLight ? 'bg-[#ecd9b9]' : 'bg-[#ae8a68]'}
                                         ${isHovered ? 'ring-2 ring-inset ring-sky-400/80' : ''}
+                                        ${isCheckSquare ? 'animate-pulse' : ''}
                                     `}
                   onPointerDown={(e) => handlePointerDown(e, square, piece)}
                   onClick={() => !draggingFrom && handleSquareClick(square, piece)}
                 >
+                  {/* Check highlight - pulsing red glow */}
+                  {isCheckSquare && (
+                    <div className="absolute inset-0 bg-gradient-radial from-red-500/60 via-red-500/30 to-transparent pointer-events-none"
+                      style={{ background: 'radial-gradient(circle, rgba(239,68,68,0.6) 0%, rgba(239,68,68,0.3) 50%, transparent 70%)' }} />
+                  )}
+
                   {isLastMove && (
                     <div className="absolute inset-0 bg-yellow-400/50 pointer-events-none" />
                   )}
@@ -285,6 +331,30 @@ export function ChessBoard({
           }}
         >
           <PieceSVG piece={draggedPiece} />
+        </div>
+      )}
+
+      {/* Subtle board border glow for events */}
+      {currentEvent && currentEvent !== 'check' && (
+        <div
+          className={`absolute inset-0 rounded-md pointer-events-none transition-opacity duration-300 ${currentEvent === 'checkmate' ? 'ring-2 ring-emerald-500/60' :
+              currentEvent === 'stalemate' || currentEvent === 'draw' ? 'ring-2 ring-slate-400/50' :
+                currentEvent === 'timeout' ? 'ring-2 ring-red-500/60' :
+                  currentEvent === 'resign' ? 'ring-2 ring-slate-500/50' : ''
+            }`}
+        />
+      )}
+
+      {/* Subtle event badge - appears at top of board */}
+      {showBadge && currentEvent && eventBadgeConfig[currentEvent] && (
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 pointer-events-none animate-slide-in-down">
+          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold shadow-lg ${eventBadgeConfig[currentEvent].colorClass}`}>
+            <span>{eventBadgeConfig[currentEvent].icon}</span>
+            <span>{eventBadgeConfig[currentEvent].text}</span>
+            {winner && (currentEvent === 'checkmate' || currentEvent === 'timeout' || currentEvent === 'resign') && (
+              <span className="ml-1 opacity-80">• {winner === 'white' ? 'White' : 'Black'} wins</span>
+            )}
+          </div>
         </div>
       )}
     </div>

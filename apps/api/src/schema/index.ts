@@ -7,6 +7,7 @@ import { profileStats } from "./profile-stats.schema";
 import { profiles } from "./profile.shema";
 import { ratings } from "./ratings.schema";
 import { users } from "./user.schema";
+import { conversations, directMessages } from "./direct-message.schema";
 
 export const schema = {
     users,
@@ -18,5 +19,6 @@ export const schema = {
     profiles,
     profileStats,
     friendRequests,
-
+    conversations,
+    directMessages,
 }

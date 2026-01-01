@@ -47,6 +47,123 @@ export class ProfileController {
         }
     }
 
+    async changePassword(req: Request, res: Response) {
+        try {
+            const userId = req.user!.userId;
+            const { currentPassword, newPassword } = req.body;
+
+            if (!currentPassword || !newPassword) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Current password and new password are required'
+                });
+            }
+
+            const result = await profileService.changePassword(userId, currentPassword, newPassword);
+
+            res.json({
+                success: true,
+                data: result
+            });
+        } catch (error) {
+            res.status(400).json({
+                success: false,
+                message: error instanceof Error ? error.message : 'Failed to change password'
+            });
+        }
+    }
+
+    async updateAvatar(req: Request, res: Response) {
+        try {
+            const userId = req.user!.userId;
+            const { avatarUrl } = req.body;
+
+            if (!avatarUrl) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Avatar URL is required'
+                });
+            }
+
+            const profile = await profileService.updateAvatar(userId, avatarUrl);
+
+            res.json({
+                success: true,
+                data: profile
+            });
+        } catch (error) {
+            res.status(400).json({
+                success: false,
+                message: error instanceof Error ? error.message : 'Failed to update avatar'
+            });
+        }
+    }
+
+    async getPreferences(req: Request, res: Response) {
+        try {
+            const userId = req.user!.userId;
+            const preferences = await profileService.getPreferences(userId);
+
+            res.json({
+                success: true,
+                data: preferences
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: 'Failed to get preferences'
+            });
+        }
+    }
+
+    async updatePreferences(req: Request, res: Response) {
+        try {
+            const userId = req.user!.userId;
+            const preferences = req.body;
+
+            const updated = await profileService.updatePreferences(userId, preferences);
+
+            res.json({
+                success: true,
+                data: updated
+            });
+        } catch (error) {
+            res.status(400).json({
+                success: false,
+                message: error instanceof Error ? error.message : 'Failed to update preferences'
+            });
+        }
+    }
+
+    async deleteAccount(req: Request, res: Response) {
+        try {
+            const userId = req.user!.userId;
+            const { password } = req.body;
+
+            if (!password) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Password is required to delete account'
+                });
+            }
+
+            const result = await profileService.deleteAccount(userId, password);
+
+            // Clear refresh token cookie
+            res.clearCookie('refreshToken');
+
+            res.json({
+                success: true,
+                data: result
+            });
+        } catch (error) {
+            res.status(400).json({
+                success: false,
+                message: error instanceof Error ? error.message : 'Failed to delete account'
+            });
+        }
+    }
+
     async getStats(req: Request, res: Response) {
         try {
             const { userId } = req.params;

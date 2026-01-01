@@ -4,6 +4,9 @@ import { authMiddleware, optionalAuthMiddleware } from '../middleware/auth.middl
 
 const router: Router = Router();
 
+// Get user's game history - requires auth
+router.get('/history/me', authMiddleware, gameController.getMyGameHistory.bind(gameController));
+
 // Get game details (static data) - optional auth for determining role
 router.get('/:gameId', optionalAuthMiddleware, gameController.getGameDetails.bind(gameController));
 

@@ -22,7 +22,7 @@ export class AuthController {
             // Register user
             const result = await authService.register(validatedData);
 
-            // Set refresh token in httpOnly cookie [web:34]
+            // Set refresh token in httpOnly cookie [web:34] (for web)
             res.cookie('refreshToken', result.tokens.refreshToken, {
                 httpOnly: true,
                 secure: process.env.NODE_ENV === 'production',
@@ -30,11 +30,13 @@ export class AuthController {
                 maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
             });
 
+            // Return both tokens in response body (for mobile compatibility)
             res.status(201).json({
                 success: true,
                 data: {
                     user: result.user,
-                    accessToken: result.tokens.accessToken
+                    accessToken: result.tokens.accessToken,
+                    refreshToken: result.tokens.refreshToken
                 }
             });
         } catch (error) {
@@ -60,7 +62,7 @@ export class AuthController {
             // Login user
             const result = await authService.login(validatedData);
 
-            // Set refresh token in httpOnly cookie [web:34]
+            // Set refresh token in httpOnly cookie [web:34] (for web)
             res.cookie('refreshToken', result.tokens.refreshToken, {
                 httpOnly: true,
                 secure: process.env.NODE_ENV === 'production',
@@ -68,11 +70,13 @@ export class AuthController {
                 maxAge: 7 * 24 * 60 * 60 * 1000
             });
 
+            // Return both tokens in response body (for mobile compatibility)
             res.status(200).json({
                 success: true,
                 data: {
                     user: result.user,
-                    accessToken: result.tokens.accessToken
+                    accessToken: result.tokens.accessToken,
+                    refreshToken: result.tokens.refreshToken
                 }
             });
         } catch (error) {
@@ -92,7 +96,8 @@ export class AuthController {
 
     async refreshToken(req: Request, res: Response) {
         try {
-            const refreshToken = req.cookies.refreshToken;
+            // Support both cookie and header for mobile compatibility
+            const refreshToken = req.cookies.refreshToken || req.headers['x-refresh-token'] as string;
 
             if (!refreshToken) {
                 return res.status(401).json({
@@ -104,7 +109,7 @@ export class AuthController {
             // Refresh tokens [web:31][web:32]
             const tokens = await authService.refreshToken(refreshToken);
 
-            // Set new refresh token in cookie
+            // Set new refresh token in cookie (for web)
             res.cookie('refreshToken', tokens.refreshToken, {
                 httpOnly: true,
                 secure: process.env.NODE_ENV === 'production',
@@ -112,10 +117,12 @@ export class AuthController {
                 maxAge: 7 * 24 * 60 * 60 * 1000
             });
 
+            // Return both tokens in response (for mobile)
             res.status(200).json({
                 success: true,
                 data: {
-                    accessToken: tokens.accessToken
+                    accessToken: tokens.accessToken,
+                    refreshToken: tokens.refreshToken
                 }
             });
         } catch (error) {
@@ -175,9 +182,10 @@ export class AuthController {
                 }
             });
         } catch (error) {
+            console.error('[AuthController.me] Error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Failed to get user info'
+                message: error instanceof Error ? error.message : 'Failed to get user info'
             });
         }
     }

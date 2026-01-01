@@ -3,6 +3,26 @@ import { gameService } from '../services/game.service';
 
 export class GameController {
     /**
+     * Get user's game history
+     * GET /api/v1/games/history/me
+     */
+    async getMyGameHistory(req: Request, res: Response, next: NextFunction) {
+        try {
+            const userId = req.user?.userId;
+            if (!userId) {
+                return res.status(401).json({ success: false, message: 'User not authenticated' });
+            }
+            const limit = parseInt(req.query.limit as string) || 20;
+            const offset = parseInt(req.query.offset as string) || 0;
+
+            const history = await gameService.getUserGameHistory(userId, limit, offset);
+            return res.json(history);
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
      * Get static game details (player info, time control, etc.)
      * GET /api/v1/games/:gameId
      */

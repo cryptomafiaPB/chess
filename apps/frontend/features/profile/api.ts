@@ -51,6 +51,7 @@ export interface UserProfile {
         bio?: string | null;
         country?: string | null;
         isOnline?: boolean;
+        preferences?: UserPreferences;
     };
     ratings: Array<{
         timeControl: string;
@@ -68,6 +69,32 @@ export interface UserProfile {
         longestWinStreak: number;
         currentWinStreak: number;
     };
+}
+
+export interface UserPreferences {
+    // Sound settings
+    soundEnabled: boolean;
+    moveSound: boolean;
+    captureSound: boolean;
+    checkSound: boolean;
+    gameEndSound: boolean;
+    notificationSound: boolean;
+    soundVolume: number;
+    // Voice settings
+    voiceEnabled: boolean;
+    // Display settings
+    boardTheme: 'classic' | 'wood' | 'marble' | 'green' | 'blue';
+    pieceSet: 'standard' | 'neo' | 'alpha' | 'chess7';
+    showCoordinates: boolean;
+    showLegalMoves: boolean;
+    showLastMove: boolean;
+    autoPromoteToQueen: boolean;
+    confirmMoves: boolean;
+    // Notification settings
+    emailNotifications: boolean;
+    gameInviteNotifications: boolean;
+    friendRequestNotifications: boolean;
+    messageNotifications: boolean;
 }
 
 export interface LeaderboardEntry {
@@ -113,13 +140,51 @@ export const profileApi = {
 
     async updateProfile(data: {
         username?: string;
-        avatar?: string;
         bio?: string;
         country?: string;
     }) {
         const response = await apiClient.patch<{ success: boolean; data: any }>(
             '/api/v1/profile/me',
             data
+        );
+        return response.data;
+    },
+
+    async changePassword(data: { currentPassword: string; newPassword: string }) {
+        const response = await apiClient.post<{ success: boolean; data: { message: string } }>(
+            '/api/v1/profile/me/password',
+            data
+        );
+        return response.data;
+    },
+
+    async updateAvatar(avatarUrl: string) {
+        const response = await apiClient.patch<{ success: boolean; data: any }>(
+            '/api/v1/profile/me/avatar',
+            { avatarUrl }
+        );
+        return response.data;
+    },
+
+    async getPreferences(): Promise<UserPreferences> {
+        const response = await apiClient.get<{ success: boolean; data: UserPreferences }>(
+            '/api/v1/profile/me/preferences'
+        );
+        return response.data;
+    },
+
+    async updatePreferences(preferences: Partial<UserPreferences>): Promise<UserPreferences> {
+        const response = await apiClient.patch<{ success: boolean; data: UserPreferences }>(
+            '/api/v1/profile/me/preferences',
+            preferences
+        );
+        return response.data;
+    },
+
+    async deleteAccount(password: string) {
+        const response = await apiClient.delete<{ success: boolean; data: { message: string } }>(
+            '/api/v1/profile/me',
+            { password }
         );
         return response.data;
     },

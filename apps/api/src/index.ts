@@ -14,6 +14,7 @@ import authRoutes from './routes/auth.route';
 import profileRoutes from './routes/profile.route';
 import friendRoutes from './routes/friend.route';
 import gameRoutes from './routes/game.route';
+import dmRoutes from './routes/dm.route';
 
 const app = express();
 const httpServer = createServer(app);
@@ -56,6 +57,7 @@ app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/profile', profileRoutes);
 app.use('/api/v1/friends', friendRoutes);
 app.use('/api/v1/games', gameRoutes);
+app.use('/api/v1/dm', dmRoutes);
 
 
 

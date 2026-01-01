@@ -4,6 +4,8 @@ import React, { useMemo } from 'react';
 import { useClockDisplay } from '@/features/game/hooks/useClockDisplay';
 import type { ClockState, PresenceStatus } from '@/features/game/hooks/useGameState';
 import Image from 'next/image';
+import { Clock, User, Crown, AlertTriangle, Wifi, WifiOff } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface CapturedPieces {
     pawns: number;
@@ -15,7 +17,7 @@ interface CapturedPieces {
 
 interface InactivityInfo {
     isActive: boolean;
-    progress: number; // 0 to 1
+    progress: number;
     isWarning: boolean;
     warningSeconds: number | null;
 }
@@ -60,108 +62,118 @@ export function PlayerCard({
     const timeMs = color === 'white' ? display.white : display.black;
     const timeFormatted = formatTime(timeMs);
 
-    // Calculate timer progress (assuming 10 minute = 600000ms max for circle)
+    // Calculate timer progress for circle visualization
     const maxTimeMs = clocks.white > clocks.black ? clocks.white : clocks.black;
-    const initialTime = Math.max(maxTimeMs, 600000); // At least 10 min for visual
+    const initialTime = Math.max(maxTimeMs, 600000);
     const progress = useMemo(() => {
         const ratio = Math.min(1, Math.max(0, timeMs / initialTime));
         return ratio;
     }, [timeMs, initialTime]);
 
     // Inactivity timer circle calculations
-    const inactivityRadius = 32;
+    const inactivityRadius = 24;
     const inactivityCircumference = 2 * Math.PI * inactivityRadius;
     const inactivityProgress = inactivity?.progress ?? 1;
     const inactivityStrokeDashoffset = inactivityCircumference * (1 - inactivityProgress);
     const showInactivityRing = isActive && status === 'active' && inactivity?.isActive;
 
-    // Determine inactivity ring color based on remaining time
-    const getInactivityRingColor = () => {
-        if (!inactivity) return '#38bdf8';
-        if (inactivity.progress < 0.25) return '#ef4444'; // Red when < 15 seconds
-        if (inactivity.progress < 0.5) return '#f59e0b'; // Orange when < 30 seconds
-        return '#38bdf8'; // Sky blue otherwise
-    };
-
-    // SVG circle calculations
-    const radius = 28;
+    // Time progress circle calculations
+    const radius = 22;
     const circumference = 2 * Math.PI * radius;
     const strokeDashoffset = circumference * (1 - progress);
 
-    // Determine if time is low (less than 30 seconds)
+    // Low time state (less than 30 seconds)
     const isLowTime = timeMs < 30000;
+    const isCriticalTime = timeMs < 10000;
+
+    // Determine ring colors
+    const getTimerColor = () => {
+        if (isCriticalTime) return 'oklch(0.637 0.237 25.331)';
+        if (isLowTime) return 'oklch(0.769 0.188 70.08)';
+        return 'oklch(0.696 0.17 162.48)';
+    };
+
+    const getInactivityRingColor = () => {
+        if (!inactivity) return 'oklch(0.696 0.17 162.48)';
+        if (inactivity.progress < 0.25) return 'oklch(0.637 0.237 25.331)';
+        if (inactivity.progress < 0.5) return 'oklch(0.769 0.188 70.08)';
+        return 'oklch(0.696 0.17 162.48)';
+    };
 
     return (
         <div
-            className={`
-                relative flex items-center gap-3 rounded-xl px-3 py-2 transition-all
-                ${isActive
-                    ? 'bg-slate-700/90 ring-2 ring-sky-400/60 shadow-lg shadow-sky-500/20'
-                    : 'bg-slate-800/70'}
-            `}
+            className={cn(
+                'relative flex items-center gap-3 rounded-2xl px-4 py-3 transition-all duration-300',
+                'bg-card/80 border border-border/50 backdrop-blur-sm',
+                isActive && [
+                    'ring-2 ring-primary/50 border-primary/50',
+                    'shadow-lg shadow-primary/10',
+                    'bg-card'
+                ],
+                !isActive && 'hover:bg-card/90'
+            )}
         >
-            {/* Avatar with circular timer */}
+            {/* Avatar Section with Timer Ring */}
             <div className="relative shrink-0">
-                {/* Inactivity ring animation (outermost circle) */}
+                {/* Inactivity Warning Ring (outer) */}
                 {showInactivityRing && (
                     <svg
-                        className="absolute -inset-2.5 -rotate-90"
-                        width="76"
-                        height="76"
-                        viewBox="0 0 76 76"
+                        className="absolute -inset-1.5 w-[60px] h-[60px] -rotate-90"
+                        viewBox="0 0 56 56"
                     >
-                        {/* Background circle */}
+                        {/* Background ring */}
                         <circle
-                            cx="38"
-                            cy="38"
+                            cx="28"
+                            cy="28"
                             r={inactivityRadius}
                             fill="none"
-                            stroke="rgba(100, 116, 139, 0.2)"
-                            strokeWidth="4"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            className="text-muted-foreground/20"
                         />
-                        {/* Progress circle - depletes over time */}
+                        {/* Progress ring */}
                         <circle
-                            cx="38"
-                            cy="38"
+                            cx="28"
+                            cy="28"
                             r={inactivityRadius}
                             fill="none"
                             stroke={getInactivityRingColor()}
-                            strokeWidth="4"
+                            strokeWidth="2.5"
                             strokeLinecap="round"
                             strokeDasharray={inactivityCircumference}
                             strokeDashoffset={inactivityStrokeDashoffset}
-                            className="transition-all duration-100"
-                            style={{
-                                filter: inactivity?.isWarning ? 'drop-shadow(0 0 6px currentColor)' : undefined
-                            }}
+                            className={cn(
+                                'transition-all duration-200',
+                                inactivity?.isWarning && 'animate-pulse'
+                            )}
                         />
                     </svg>
                 )}
-                {/* Timer circle (shows clock progress) */}
-                {isActive && status === 'active' && (
+
+                {/* Timer Progress Ring (inner, when active) */}
+                {isActive && (
                     <svg
-                        className="absolute -inset-1 -rotate-90"
-                        width="66"
-                        height="66"
-                        viewBox="0 0 66 66"
+                        className="absolute inset-0 w-full h-full -rotate-90"
+                        viewBox="0 0 52 52"
                     >
                         {/* Background circle */}
                         <circle
-                            cx="33"
-                            cy="33"
+                            cx="26"
+                            cy="26"
                             r={radius}
                             fill="none"
-                            stroke="rgba(100, 116, 139, 0.3)"
-                            strokeWidth="3"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            className="text-muted-foreground/20"
                         />
                         {/* Progress circle */}
                         <circle
-                            cx="33"
-                            cy="33"
+                            cx="26"
+                            cy="26"
                             r={radius}
                             fill="none"
-                            stroke={isLowTime ? '#ef4444' : '#38bdf8'}
-                            strokeWidth="3"
+                            stroke={getTimerColor()}
+                            strokeWidth="2.5"
                             strokeLinecap="round"
                             strokeDasharray={circumference}
                             strokeDashoffset={strokeDashoffset}
@@ -169,79 +181,129 @@ export function PlayerCard({
                         />
                     </svg>
                 )}
+
                 {/* Avatar */}
                 <div
-                    className={`
-                        w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold
-                        ${color === 'white' ? 'bg-slate-200 text-slate-800' : 'bg-slate-600 text-slate-100'}
-                        ${presence === 'offline' ? 'opacity-50' : ''}
-                    `}
+                    className={cn(
+                        'relative w-12 h-12 rounded-full flex items-center justify-center overflow-hidden',
+                        'text-lg font-bold transition-all duration-200',
+                        color === 'white'
+                            ? 'bg-linear-to-br from-slate-100 to-slate-300 text-slate-800'
+                            : 'bg-linear-to-br from-slate-700 to-slate-900 text-slate-100',
+                        presence === 'offline' && 'opacity-60 grayscale'
+                    )}
                 >
                     {avatarUrl ? (
-                        <img src={avatarUrl} alt={username} className="w-full h-full rounded-full object-cover" />
+                        <Image
+                            src={avatarUrl}
+                            alt={username}
+                            fill
+                            className="object-cover"
+                        />
                     ) : (
-                        username.charAt(0).toUpperCase()
+                        <User className="w-5 h-5" />
                     )}
                 </div>
-                {/* Online indicator */}
-                <Image
-                    alt='country-flag'
-                    width={100}
-                    height={100}
-                    src={country ? `https://github.com/hampusborgos/country-flags/tree/main/svg/${country}.svg` : 'https://static.vecteezy.com/system/resources/thumbnails/068/599/133/large/editorial-one-piece-symbol-waving-flag-green-screen-background-free-video.jpg'}
-                    className={`
-                        absolute -bottom-2.5 -right-2.5 w-9 h-5
-                        ${presence === 'online' ? 'bg-emerald-500' : 'bg-slate-500'}
-                    `}
-                />
+
+                {/* Country Flag / Presence Indicator */}
+                <div
+                    className={cn(
+                        'absolute -bottom-1 -right-1 w-5 h-5 rounded-full',
+                        'flex items-center justify-center',
+                        'border-2 border-card text-[10px]',
+                        presence === 'online'
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted text-muted-foreground'
+                    )}
+                >
+                    {country ? (
+                        <span className="text-[10px] font-semibold uppercase">{country.slice(0, 2)}</span>
+                    ) : presence === 'online' ? (
+                        <Wifi className="w-2.5 h-2.5" />
+                    ) : (
+                        <WifiOff className="w-2.5 h-2.5" />
+                    )}
+                </div>
             </div>
 
-            {/* Player info */}
+            {/* Player Info Section */}
             <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                    <span className="font-semibold text-white truncate text-sm">
+                    <span className={cn(
+                        'font-semibold truncate text-sm',
+                        isActive ? 'text-foreground' : 'text-muted-foreground'
+                    )}>
                         {username}
                     </span>
                     {rating && (
-                        <span className="text-xs text-slate-400">
+                        <span className="text-xs text-muted-foreground/70 font-medium">
                             ({rating})
                         </span>
                     )}
+                    {/* Active turn indicator */}
+                    {isActive && (
+                        <Crown className="w-3.5 h-3.5 text-primary shrink-0" />
+                    )}
                 </div>
-                {/* Captured pieces */}
+
+                {/* Captured pieces display */}
                 {capturedPieces && (
-                    <div className="flex items-center gap-1 mt-0.5 text-[11px] text-slate-400">
-                        {capturedPieces.pawns > 0 && <span>{capturedPieces.pawns}♟</span>}
-                        {capturedPieces.knights > 0 && <span>{capturedPieces.knights}♞</span>}
-                        {capturedPieces.bishops > 0 && <span>{capturedPieces.bishops}♝</span>}
-                        {capturedPieces.rooks > 0 && <span>{capturedPieces.rooks}♜</span>}
-                        {capturedPieces.queens > 0 && <span>{capturedPieces.queens}♛</span>}
+                    <div className="flex items-center gap-1.5 mt-1 text-muted-foreground">
+                        <div className="flex items-center gap-0.5 text-xs">
+                            {capturedPieces.pawns > 0 && (
+                                <span className="opacity-70">{capturedPieces.pawns}♟</span>
+                            )}
+                            {capturedPieces.knights > 0 && (
+                                <span className="opacity-70">{capturedPieces.knights}♞</span>
+                            )}
+                            {capturedPieces.bishops > 0 && (
+                                <span className="opacity-70">{capturedPieces.bishops}♝</span>
+                            )}
+                            {capturedPieces.rooks > 0 && (
+                                <span className="opacity-70">{capturedPieces.rooks}♜</span>
+                            )}
+                            {capturedPieces.queens > 0 && (
+                                <span className="opacity-70">{capturedPieces.queens}♛</span>
+                            )}
+                        </div>
                         {materialAdvantage !== 0 && (
-                            <span className={materialAdvantage > 0 ? 'text-emerald-400' : 'text-red-400'}>
+                            <span className={cn(
+                                'text-xs font-semibold',
+                                materialAdvantage > 0 ? 'text-primary' : 'text-destructive'
+                            )}>
                                 {materialAdvantage > 0 ? '+' : ''}{materialAdvantage}
                             </span>
                         )}
                     </div>
                 )}
+
+                {/* Inactivity warning */}
+                {inactivity?.isWarning && inactivity.warningSeconds !== null && (
+                    <div className="flex items-center gap-1 mt-1 text-xs text-amber-500">
+                        <AlertTriangle className="w-3 h-3" />
+                        <span>Auto-resign in {inactivity.warningSeconds}s</span>
+                    </div>
+                )}
             </div>
 
-            {/* Timer display */}
-            <div className="flex items-center gap-2">
+            {/* Timer Display */}
+            <div className="flex items-center shrink-0">
                 <div
-                    className={`
-                        flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg font-mono text-base font-bold
-                        ${isActive
-                            ? isLowTime
-                                ? 'bg-red-500/20 text-red-400'
-                                : 'bg-sky-500/20 text-sky-400'
-                            : 'bg-slate-700/50 text-slate-300'}
-                    `}
+                    className={cn(
+                        'flex items-center gap-2 px-3 py-2 rounded-xl font-mono text-base font-bold transition-all',
+                        isActive && [
+                            isCriticalTime && 'bg-destructive/20 text-destructive animate-pulse',
+                            isLowTime && !isCriticalTime && 'bg-amber-500/20 text-amber-500',
+                            !isLowTime && 'bg-primary/20 text-primary'
+                        ],
+                        !isActive && 'bg-muted/50 text-muted-foreground'
+                    )}
                 >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <circle cx="12" cy="12" r="9" strokeWidth="2" />
-                        <path strokeLinecap="round" strokeWidth="2" d="M12 7v5l3 3" />
-                    </svg>
-                    {timeFormatted}
+                    <Clock className={cn(
+                        'w-4 h-4',
+                        isActive && isLowTime && 'animate-pulse'
+                    )} />
+                    <span className="tabular-nums">{timeFormatted}</span>
                 </div>
             </div>
         </div>

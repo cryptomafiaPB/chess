@@ -7,29 +7,55 @@ import { useLeaderboard } from '@/features/profile/hooks/useProfile';
 
 type TimeControl = 'bullet' | 'blitz' | 'rapid' | 'classical';
 
-const timeControls: { id: TimeControl; label: string; icon: string }[] = [
-    { id: 'bullet', label: 'Bullet', icon: '⚡' },
-    { id: 'blitz', label: 'Blitz', icon: '🔥' },
-    { id: 'rapid', label: 'Rapid', icon: '⏱️' },
-    { id: 'classical', label: 'Classical', icon: '♟️' },
+const timeControls: { id: TimeControl; label: string; description: string }[] = [
+    { id: 'bullet', label: 'Bullet', description: '1 min games' },
+    { id: 'blitz', label: 'Blitz', description: '3-5 min games' },
+    { id: 'rapid', label: 'Rapid', description: '10-15 min games' },
+    { id: 'classical', label: 'Classical', description: '30+ min games' },
 ];
+
+// Icons
+const TimeControlIcons = {
+    bullet: (
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z" />
+        </svg>
+    ),
+    blitz: (
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.362 5.214A8.252 8.252 0 0 1 12 21 8.25 8.25 0 0 1 6.038 7.047 8.287 8.287 0 0 0 9 9.601a8.983 8.983 0 0 1 3.361-6.867 8.21 8.21 0 0 0 3 2.48Z" />
+        </svg>
+    ),
+    rapid: (
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+        </svg>
+    ),
+    classical: (
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 0 1 3 3h-15a3 3 0 0 1 3-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 0 1-.982-3.172M9.497 14.25a7.454 7.454 0 0 0 .981-3.172" />
+        </svg>
+    ),
+};
 
 // Medal component for top 3
 const Medal = ({ rank }: { rank: number }) => {
-    const colors = {
-        1: 'from-yellow-400 to-yellow-600',
-        2: 'from-slate-300 to-slate-500',
-        3: 'from-amber-600 to-amber-800',
+    const config = {
+        1: { bg: 'from-yellow-400 to-yellow-600', shadow: 'shadow-yellow-500/30', icon: '👑' },
+        2: { bg: 'from-slate-300 to-slate-500', shadow: 'shadow-slate-400/30', icon: '🥈' },
+        3: { bg: 'from-amber-600 to-amber-800', shadow: 'shadow-amber-600/30', icon: '🥉' },
     };
+    const c = config[rank as keyof typeof config];
 
     return (
         <div
             className={cn(
-                'flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br text-sm font-bold text-white shadow-lg',
-                colors[rank as keyof typeof colors]
+                'flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br text-lg shadow-lg',
+                c.bg,
+                c.shadow
             )}
         >
-            {rank}
+            {c.icon}
         </div>
     );
 };
@@ -60,57 +86,53 @@ const LeaderboardRow = ({
         <Link
             href={`/profile/${userId}`}
             className={cn(
-                'group flex items-center gap-4 rounded-xl border p-4 transition-all hover:border-emerald-500/50 hover:bg-card/80',
-                isCurrentUser && 'border-emerald-500/30 bg-emerald-500/5',
-                isTopThree && 'bg-gradient-to-r from-card to-transparent'
+                'group flex items-center gap-4 rounded-2xl border p-4 transition-all duration-200',
+                isCurrentUser
+                    ? 'border-primary/30 bg-primary/5'
+                    : 'border-border/50 bg-card/50 hover:border-primary/30 hover:bg-card'
             )}
         >
             {/* Rank */}
-            <div className="w-10 flex-shrink-0">
+            <div className="flex w-12 shrink-0 items-center justify-center">
                 {isTopThree ? (
                     <Medal rank={rank} />
                 ) : (
-                    <span className="flex h-8 w-8 items-center justify-center text-sm font-medium text-muted-foreground">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted text-sm font-bold text-muted-foreground">
                         {rank}
                     </span>
                 )}
             </div>
 
             {/* Avatar + Username */}
-            <div className="flex flex-1 items-center gap-3">
+            <div className="flex flex-1 items-center gap-4 min-w-0">
                 <div
                     className={cn(
-                        'h-10 w-10 overflow-hidden rounded-full bg-gradient-to-br',
+                        'h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br transition-transform duration-200 group-hover:scale-105',
                         isTopThree
-                            ? 'from-emerald-500 to-cyan-500 ring-2 ring-emerald-500/30'
-                            : 'from-slate-600 to-slate-700'
+                            ? 'from-primary to-emerald-400 ring-2 ring-primary/30'
+                            : 'from-muted to-muted-foreground/20'
                     )}
                 >
                     {avatar ? (
                         <img src={avatar} alt={username} className="h-full w-full object-cover" />
                     ) : (
-                        <div className="flex h-full w-full items-center justify-center font-bold text-white">
+                        <div className="flex h-full w-full items-center justify-center font-bold text-primary-foreground">
                             {username.charAt(0).toUpperCase()}
                         </div>
                     )}
                 </div>
-                <div>
+                <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                        <span
-                            className={cn(
-                                'font-medium',
-                                isCurrentUser && 'text-emerald-500'
-                            )}
-                        >
+                        <span className={cn('truncate font-semibold', isCurrentUser && 'text-primary')}>
                             {username}
                         </span>
                         {isCurrentUser && (
-                            <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-xs text-emerald-500">
+                            <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
                                 You
                             </span>
                         )}
                     </div>
-                    <div className="text-xs text-muted-foreground">
+                    <div className="mt-0.5 text-sm text-muted-foreground">
                         {gamesPlayed} games • {winRate}% win rate
                     </div>
                 </div>
@@ -118,30 +140,21 @@ const LeaderboardRow = ({
 
             {/* Rating */}
             <div className="text-right">
-                <div
-                    className={cn(
-                        'text-xl font-bold',
-                        isTopThree ? 'text-emerald-500' : 'text-foreground'
-                    )}
-                >
-                    {rating}
+                <div className={cn('text-2xl font-bold tabular-nums', isTopThree && 'text-primary')}>
+                    {rating.toLocaleString()}
                 </div>
                 <div className="text-xs text-muted-foreground">Rating</div>
             </div>
 
             {/* Arrow */}
             <svg
-                className="h-5 w-5 flex-shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-emerald-500"
+                className="h-5 w-5 shrink-0 text-muted-foreground transition-all duration-200 group-hover:translate-x-1 group-hover:text-primary"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
+                strokeWidth={1.5}
             >
-                <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5l7 7-7 7"
-                />
+                <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
             </svg>
         </Link>
     );
@@ -159,13 +172,16 @@ const Podium = ({
         rating: number;
     }>;
 }) => {
-    const podiumOrder = [1, 0, 2]; // 2nd, 1st, 3rd
-    const heights = ['h-24', 'h-32', 'h-20'];
-    const positions = ['bg-gradient-to-t from-slate-400/20', 'bg-gradient-to-t from-yellow-500/20', 'bg-gradient-to-t from-amber-700/20'];
+    // Order: 2nd, 1st, 3rd
+    const podiumConfig = [
+        { index: 1, height: 'h-28', avatarSize: 'h-20 w-20', ring: 'ring-slate-400/50', delay: 'delay-100' },
+        { index: 0, height: 'h-36', avatarSize: 'h-24 w-24', ring: 'ring-yellow-500/50', delay: 'delay-0' },
+        { index: 2, height: 'h-24', avatarSize: 'h-18 w-18', ring: 'ring-amber-600/50', delay: 'delay-200' },
+    ];
 
     return (
-        <div className="mb-8 hidden items-end justify-center gap-2 md:flex">
-            {podiumOrder.map((index, displayIndex) => {
+        <div className="mb-8 hidden items-end justify-center gap-4 md:flex">
+            {podiumConfig.map(({ index, height, avatarSize, ring, delay }) => {
                 const player = players[index];
                 if (!player) return null;
 
@@ -173,49 +189,46 @@ const Podium = ({
                     <Link
                         key={player.userId}
                         href={`/profile/${player.userId}`}
-                        className="group flex flex-col items-center"
+                        className={cn('group flex flex-col items-center animate-fade-in', delay)}
                     >
                         {/* Avatar */}
                         <div
                             className={cn(
-                                'mb-2 overflow-hidden rounded-full transition-transform group-hover:scale-110',
-                                index === 0
-                                    ? 'h-20 w-20 ring-4 ring-yellow-500/50'
-                                    : index === 1
-                                        ? 'h-16 w-16 ring-4 ring-slate-400/50'
-                                        : 'h-14 w-14 ring-4 ring-amber-700/50'
+                                'mb-3 overflow-hidden rounded-2xl bg-gradient-to-br from-primary to-emerald-400 transition-all duration-300 group-hover:scale-110 ring-4',
+                                avatarSize,
+                                ring
                             )}
                         >
-                            <div className="h-full w-full bg-gradient-to-br from-emerald-500 to-cyan-500">
-                                {player.avatar ? (
-                                    <img
-                                        src={player.avatar}
-                                        alt={player.username}
-                                        className="h-full w-full object-cover"
-                                    />
-                                ) : (
-                                    <div className="flex h-full w-full items-center justify-center text-xl font-bold text-white">
-                                        {player.username.charAt(0).toUpperCase()}
-                                    </div>
-                                )}
-                            </div>
+                            {player.avatar ? (
+                                <img src={player.avatar} alt={player.username} className="h-full w-full object-cover" />
+                            ) : (
+                                <div className="flex h-full w-full items-center justify-center text-2xl font-bold text-primary-foreground">
+                                    {player.username.charAt(0).toUpperCase()}
+                                </div>
+                            )}
                         </div>
 
                         {/* Username & Rating */}
-                        <div className="mb-2 text-center">
-                            <div className="font-medium">{player.username}</div>
-                            <div className="text-lg font-bold text-emerald-500">{player.rating}</div>
+                        <div className="mb-3 text-center">
+                            <div className="font-semibold transition-colors group-hover:text-primary">{player.username}</div>
+                            <div className="text-xl font-bold text-primary">{player.rating.toLocaleString()}</div>
                         </div>
 
                         {/* Podium */}
                         <div
                             className={cn(
-                                'flex w-28 items-center justify-center rounded-t-lg',
-                                heights[displayIndex],
-                                positions[displayIndex]
+                                'flex w-32 items-start justify-center rounded-t-2xl bg-gradient-to-t transition-all duration-300 group-hover:scale-105',
+                                height,
+                                index === 0
+                                    ? 'from-yellow-500/10 to-yellow-500/30'
+                                    : index === 1
+                                        ? 'from-slate-400/10 to-slate-400/20'
+                                        : 'from-amber-600/10 to-amber-600/20'
                             )}
                         >
-                            <Medal rank={player.rank} />
+                            <div className="mt-4">
+                                <Medal rank={player.rank} />
+                            </div>
                         </div>
                     </Link>
                 );
@@ -223,6 +236,48 @@ const Podium = ({
         </div>
     );
 };
+
+// Loading skeleton
+const LoadingSkeleton = () => (
+    <div className="mx-auto max-w-4xl space-y-6 px-4 py-6 lg:py-8 animate-pulse">
+        <div className="mb-6">
+            <div className="h-8 w-48 rounded-lg bg-muted" />
+            <div className="mt-2 h-4 w-64 rounded bg-muted" />
+        </div>
+        <div className="flex gap-2">
+            {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-12 w-24 rounded-xl bg-muted" />
+            ))}
+        </div>
+        <div className="space-y-3">
+            {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="h-20 rounded-2xl bg-muted" />
+            ))}
+        </div>
+    </div>
+);
+
+// Empty state
+const EmptyState = () => (
+    <div className="py-20 text-center">
+        <div className="mb-4 inline-flex h-20 w-20 items-center justify-center rounded-2xl bg-muted">
+            <svg className="h-10 w-10 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 0 1 3 3h-15a3 3 0 0 1 3-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 0 1-.982-3.172M9.497 14.25a7.454 7.454 0 0 0 .981-3.172" />
+            </svg>
+        </div>
+        <h3 className="mb-2 text-lg font-semibold">No rankings yet</h3>
+        <p className="mb-6 text-muted-foreground">Play some games to appear on the leaderboard!</p>
+        <Link
+            href="/play"
+            className="inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3 font-medium text-primary-foreground transition-all hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/25"
+        >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z" />
+            </svg>
+            Play Now
+        </Link>
+    </div>
+);
 
 export default function LeaderboardPage() {
     const [selectedTimeControl, setSelectedTimeControl] = useState<TimeControl>('blitz');
@@ -236,75 +291,50 @@ export default function LeaderboardPage() {
         rank: index + 1,
     }));
 
+    if (isLoading) {
+        return <LoadingSkeleton />;
+    }
+
     return (
-        <div className="mx-auto max-w-4xl px-4 py-6">
+        <div className="mx-auto max-w-4xl px-4 py-6 lg:py-8">
             {/* Header */}
-            <div className="mb-6">
-                <h1 className="text-2xl font-bold sm:text-3xl">Leaderboard</h1>
-                <p className="mt-1 text-muted-foreground">
-                    Top players ranked by rating
-                </p>
+            <div className="mb-8">
+                <h1 className="text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl">Leaderboard</h1>
+                <p className="mt-1 text-muted-foreground">Top players ranked by rating</p>
             </div>
 
             {/* Time Control Selector */}
-            <div className="mb-6 flex flex-wrap gap-2">
+            <div className="mb-8 flex flex-wrap gap-2">
                 {timeControls.map((tc) => (
                     <button
                         key={tc.id}
                         onClick={() => setSelectedTimeControl(tc.id)}
                         className={cn(
-                            'flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all',
+                            'flex items-center gap-2.5 rounded-xl border px-4 py-3 text-sm font-medium transition-all duration-200',
                             selectedTimeControl === tc.id
-                                ? 'border-emerald-500 bg-emerald-500/10 text-emerald-500'
-                                : 'border-border bg-card text-muted-foreground hover:border-muted-foreground hover:text-foreground'
+                                ? 'border-primary bg-primary/10 text-primary shadow-lg shadow-primary/10'
+                                : 'border-border bg-card text-muted-foreground hover:border-primary/30 hover:bg-card hover:text-foreground'
                         )}
+                        aria-pressed={selectedTimeControl === tc.id}
                     >
-                        <span>{tc.icon}</span>
-                        <span>{tc.label}</span>
+                        {TimeControlIcons[tc.id]}
+                        <div className="text-left">
+                            <div className="font-semibold">{tc.label}</div>
+                            <div className="text-xs opacity-70">{tc.description}</div>
+                        </div>
                     </button>
                 ))}
             </div>
 
-            {/* Loading State */}
-            {isLoading ? (
-                <div className="flex items-center justify-center py-20">
-                    <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                </div>
-            ) : leaderboard.length === 0 ? (
-                <div className="py-20 text-center">
-                    <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-                        <svg
-                            className="h-8 w-8 text-muted-foreground"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                        >
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                            />
-                        </svg>
-                    </div>
-                    <h3 className="mb-1 font-semibold">No rankings yet</h3>
-                    <p className="text-sm text-muted-foreground">
-                        Play some games to appear on the leaderboard!
-                    </p>
-                    <Link
-                        href="/play"
-                        className="mt-4 inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-6 py-2.5 font-medium text-white transition-colors hover:bg-emerald-600"
-                    >
-                        Play Now
-                    </Link>
-                </div>
+            {leaderboard.length === 0 ? (
+                <EmptyState />
             ) : (
                 <>
                     {/* Podium for Top 3 */}
                     {topThree.length >= 3 && <Podium players={topThree} />}
 
                     {/* Full Leaderboard */}
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                         {leaderboard.map((player: any, index: number) => (
                             <LeaderboardRow
                                 key={player.userId}
@@ -321,36 +351,21 @@ export default function LeaderboardPage() {
                     </div>
 
                     {/* Stats Footer */}
-                    <div className="mt-8 rounded-xl border bg-card p-6 text-center">
-                        <div className="grid grid-cols-3 gap-4">
+                    <div className="mt-8 rounded-2xl border border-border/50 bg-card/50 p-6">
+                        <div className="grid grid-cols-3 gap-6 text-center">
                             <div>
-                                <div className="text-2xl font-bold text-emerald-500">
-                                    {leaderboard.length}
-                                </div>
-                                <div className="text-xs text-muted-foreground">
-                                    Ranked Players
-                                </div>
+                                <div className="text-3xl font-bold text-primary">{leaderboard.length}</div>
+                                <div className="mt-1 text-sm text-muted-foreground">Ranked Players</div>
                             </div>
                             <div>
-                                <div className="text-2xl font-bold">
-                                    {Math.round(
-                                        leaderboard.reduce(
-                                            (acc: number, p: any) => acc + p.rating,
-                                            0
-                                        ) / leaderboard.length
-                                    ) || 0}
+                                <div className="text-3xl font-bold">
+                                    {Math.round(leaderboard.reduce((acc: number, p: any) => acc + p.rating, 0) / leaderboard.length) || 0}
                                 </div>
-                                <div className="text-xs text-muted-foreground">
-                                    Average Rating
-                                </div>
+                                <div className="mt-1 text-sm text-muted-foreground">Average Rating</div>
                             </div>
                             <div>
-                                <div className="text-2xl font-bold">
-                                    {leaderboard[0]?.rating || 0}
-                                </div>
-                                <div className="text-xs text-muted-foreground">
-                                    Top Rating
-                                </div>
+                                <div className="text-3xl font-bold">{leaderboard[0]?.rating?.toLocaleString() || 0}</div>
+                                <div className="mt-1 text-sm text-muted-foreground">Top Rating</div>
                             </div>
                         </div>
                     </div>

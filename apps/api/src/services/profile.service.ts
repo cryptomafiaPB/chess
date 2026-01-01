@@ -2,10 +2,12 @@ import { eq, and, or, desc, sql, asc } from 'drizzle-orm';
 import { db } from '../config/database';
 import { redis } from 'db/redis';
 import { users } from 'schema/user.schema';
-import { profiles } from 'schema/profile.shema';
+import { profiles, DEFAULT_PREFERENCES } from 'schema/profile.shema';
+import type { ProfilePreferences } from 'schema/profile.shema';
 import { profileStats } from 'schema/profile-stats.schema';
 import { ratings } from 'schema/ratings.schema';
 import { games } from 'schema/game.schema';
+import { hashPassword, verifyPassword } from '../utils/password';
 
 export class ProfileService {
     private getEmptyStats() {
@@ -391,6 +393,152 @@ export class ProfileService {
             },
             recentGames
         };
+    }
+
+    // Change user password
+    async changePassword(userId: string, currentPassword: string, newPassword: string) {
+        // Get current user
+        const user = await db.query.users.findFirst({
+            where: eq(users.id, Number(userId)),
+            columns: {
+                id: true,
+                hashed_password: true
+            }
+        });
+
+        if (!user) {
+            throw new Error('User not found');
+        }
+
+        // Verify current password
+        const isValid = await verifyPassword(currentPassword, user.hashed_password);
+        if (!isValid) {
+            throw new Error('Current password is incorrect');
+        }
+
+        // Validate new password
+        if (newPassword.length < 8) {
+            throw new Error('New password must be at least 8 characters');
+        }
+
+        // Hash and update new password
+        const hashedNewPassword = await hashPassword(newPassword);
+
+        await db
+            .update(users)
+            .set({
+                hashed_password: hashedNewPassword,
+                updatedAt: new Date()
+            })
+            .where(eq(users.id, Number(userId)));
+
+        return { message: 'Password changed successfully' };
+    }
+
+    // Update avatar URL
+    async updateAvatar(userId: string, avatarUrl: string) {
+        await db
+            .update(users)
+            .set({
+                avatar_url: avatarUrl,
+                updatedAt: new Date()
+            })
+            .where(eq(users.id, Number(userId)));
+
+        // Invalidate cache
+        await redis.del(`profile:${userId}`);
+
+        return this.getProfile(userId, userId);
+    }
+
+    // Get user preferences
+    async getPreferences(userId: string): Promise<ProfilePreferences> {
+        const profile = await db.query.profiles.findFirst({
+            where: eq(profiles.userId, Number(userId)),
+            columns: {
+                preferences: true
+            }
+        });
+
+        // Merge with defaults to ensure all fields are present
+        return {
+            ...DEFAULT_PREFERENCES,
+            ...profile?.preferences
+        };
+    }
+
+    // Update user preferences
+    async updatePreferences(userId: string, preferences: Partial<ProfilePreferences>): Promise<ProfilePreferences> {
+        const existingProfile = await db.query.profiles.findFirst({
+            where: eq(profiles.userId, Number(userId))
+        });
+
+        const updatedPreferences: ProfilePreferences = {
+            ...DEFAULT_PREFERENCES,
+            ...existingProfile?.preferences,
+            ...preferences
+        };
+
+        await db
+            .update(profiles)
+            .set({ preferences: updatedPreferences })
+            .where(eq(profiles.userId, Number(userId)));
+
+        // Invalidate cache
+        await redis.del(`profile:${userId}`);
+
+        return updatedPreferences;
+    }
+
+    // Delete account (soft delete or hard delete based on requirements)
+    async deleteAccount(userId: string, password: string) {
+        // Verify password
+        const user = await db.query.users.findFirst({
+            where: eq(users.id, Number(userId)),
+            columns: {
+                id: true,
+                hashed_password: true
+            }
+        });
+
+        if (!user) {
+            throw new Error('User not found');
+        }
+
+        const isValid = await verifyPassword(password, user.hashed_password);
+        if (!isValid) {
+            throw new Error('Password is incorrect');
+        }
+
+        // For now, we'll anonymize the account rather than hard delete
+        // This preserves game history integrity
+        const anonymousUsername = `deleted_user_${user.id}`;
+
+        await db
+            .update(users)
+            .set({
+                username: anonymousUsername,
+                email: `${anonymousUsername}@deleted.local`,
+                hashed_password: 'DELETED',
+                avatar_url: null,
+                updatedAt: new Date()
+            })
+            .where(eq(users.id, Number(userId)));
+
+        await db
+            .update(profiles)
+            .set({
+                bio: null,
+                country: null,
+                preferences: null
+            })
+            .where(eq(profiles.userId, Number(userId)));
+
+        // Clear cache
+        await redis.del(`profile:${userId}`);
+        await redis.del(`refresh_token:${userId}`);
+
+        return { message: 'Account deleted successfully' };
     }
 }
 
