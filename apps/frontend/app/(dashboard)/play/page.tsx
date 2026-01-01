@@ -1,6 +1,7 @@
 'use client';
 
 import { type ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { TimeControl, useMatchmaking } from '@/features/game/hooks/useMatchMaking';
 import { cn } from '@/lib/utils';
@@ -64,6 +65,7 @@ const FeatureCard = ({ icon, title, description }: { icon: ReactNode; title: str
 );
 
 export default function PlayPage() {
+    const router = useRouter();
     const { isQueueing, timeControl, error, joinQueue, leaveQueue, setTimeControl } = useMatchmaking();
 
     const selectedControl = TIME_CONTROLS.find((t) => t.id === timeControl);
@@ -230,6 +232,39 @@ export default function PlayPage() {
                     title="Quick Rematch"
                     description="Challenge the same opponent again instantly"
                 />
+            </div>
+
+            {/* Play vs Bot Section */}
+            <div className="mt-12">
+                <div className="rounded-2xl border border-border bg-gradient-to-br from-card to-card/50 p-6">
+                    <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
+                        <div className="flex items-center gap-4">
+                            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 text-2xl shadow-lg">
+                                🤖
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-semibold">Play vs Bot</h3>
+                                <p className="text-sm text-muted-foreground">Practice offline against AI with 5 difficulty levels</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-green-500/10 px-2.5 py-1 text-xs font-medium text-green-500">
+                                <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                                Works Offline
+                            </span>
+                            <Button
+                                onClick={() => router.push('/play/bot')}
+                                variant="outline"
+                                className="gap-2"
+                            >
+                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z" />
+                                </svg>
+                                Play Bot
+                            </Button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     );
